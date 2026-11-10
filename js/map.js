@@ -211,7 +211,7 @@ export function renderMap(root, v) {
   const tick = (x) => (scale.type === 'seq' ? fmtNum(x) : fmtSigned(x));
   const lgTitle = which === 'diff' ? `B − A (${T.appCalc})` : figs.length === 2 ? '공통 범례' : '범례';
   const legend = message ? `<div class="legend empty"></div>` : `<div class="legend">
-    <span class="lg-title">${lgTitle}<span class="u">${esc(unit)} · ${which === 'diff' ? (v.pct ? '변화율 차이' : '시나리오 차이') : esc(modeName(s.mode, v.pct))}</span></span>
+    <span class="lg-title">${lgTitle}${scale.annualRange ? `<span class="lg-tag">연도 보기 색 범위</span>` : ''}<span class="u">${esc(unit)} · ${which === 'diff' ? (v.pct ? '변화율 차이' : '시나리오 차이') : esc(modeName(s.mode, v.pct))}</span></span>
     <span class="lg-end">${tick(scale.min)}</span>
     <span class="lg-bar-wrap"><span class="bar" style="background:${scale.gradient}"></span>
       <span class="words"><span>${esc(scale.low)}</span>${scale.type === 'div' ? '<span>0</span>' : ''}<span>${esc(scale.high)}</span></span></span>

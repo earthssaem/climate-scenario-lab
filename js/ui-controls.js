@@ -81,26 +81,43 @@ export function regionToolsHTML(v) {
 
 /* ───────────── 시나리오 선택 창 ───────────── */
 
-/** 미니 배출 곡선 — 네 곡선 모두 같은 y축(yr) */
+/**
+ * 미니 배출 곡선 — 네 곡선 모두 같은 y축(yr).
+ * x축은 실제 연도 간격(years가 2015, 2020, 2030 … 처럼 고르지 않아도 연도 값 그대로 위치를 잡음, 범주형 축 아님).
+ * 자료가 있는 해마다 점과 아래 눈금을 찍어 간격이 보이게 하고, 0선(실선 + "0")을 늘 그림(음수 배출 있음).
+ */
 function miniCurve(em, id, color, yr) {
-  const W = 132;
-  const H = 46;
-  const P = 4;
+  const W = 156;
+  const H = 66;
+  const L = 16;   // 왼쪽: "0" 글자 자리
+  const R = 8;
+  const T = 5;
+  const B = 20;   // 아래: 연도 글자 자리
   const ys = em.values?.[id];
   if (!ys) return '';
-  const x0 = em.years[0];
-  const x1 = em.years[em.years.length - 1];
-  const px = (x) => P + ((x - x0) / (x1 - x0 || 1)) * (W - 2 * P);
-  const py = (y) => H - P - ((y - yr[0]) / (yr[1] - yr[0] || 1)) * (H - 2 * P);
-  const pts = em.years.map((x, i) => (Number.isFinite(ys[i]) ? `${px(x).toFixed(1)},${py(ys[i]).toFixed(1)}` : null));
+  const years = em.years;
+  const x0 = years[0];
+  const x1 = years[years.length - 1];
+  const px = (x) => L + ((x - x0) / (x1 - x0 || 1)) * (W - L - R);
+  const py = (y) => T + (1 - (y - yr[0]) / (yr[1] - yr[0] || 1)) * (H - T - B);
+  const pts = years.map((x, i) => (Number.isFinite(ys[i]) ? [px(x), py(ys[i])] : null));
   const segs = [];   // 빈 값이 있으면 선을 끊어서 그림
   let cur = [];
-  pts.forEach((p) => { if (p) cur.push(p); else { if (cur.length) segs.push(cur); cur = []; } });
+  pts.forEach((pt) => { if (pt) cur.push(pt); else { if (cur.length) segs.push(cur); cur = []; } });
   if (cur.length) segs.push(cur);
-  const zy = py(0).toFixed(1);
-  return `<svg class="mini" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="전 지구 CO₂ 배출 경로 (${esc(x0)}~${esc(x1)})">
-    <line x1="${P}" x2="${W - P}" y1="${zy}" y2="${zy}" class="zero"/>
-    ${segs.map((sg) => `<polyline points="${sg.join(' ')}" fill="none" stroke="${esc(color)}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
+  const zy = py(0);
+  const base = H - B;
+  const f = (n) => n.toFixed(1);
+  return `<svg class="mini" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img"
+    aria-label="전 지구 CO₂ 배출 경로 ${esc(x0)}~${esc(x1)}년, ${esc(years.map((y, i) => `${y}년 ${ys[i]}`).join(', '))} GtCO₂/년">
+    <line x1="${L}" x2="${W - R}" y1="${f(base)}" y2="${f(base)}" class="axis"/>
+    ${years.map((x) => `<line x1="${f(px(x))}" x2="${f(px(x))}" y1="${f(base)}" y2="${f(base + 4)}" class="tick"/>`).join('')}
+    <text x="${f(px(x0))}" y="${H - 2}" class="tl" text-anchor="start">${esc(x0)}</text>
+    <text x="${f(px(x1))}" y="${H - 2}" class="tl" text-anchor="end">${esc(x1)}</text>
+    <line x1="${L}" x2="${W - R}" y1="${f(zy)}" y2="${f(zy)}" class="zero"/>
+    <text x="${L - 4}" y="${f(zy + 5)}" class="tl" text-anchor="end">0</text>
+    ${segs.map((sg) => `<polyline points="${sg.map(([x, y]) => `${f(x)},${f(y)}`).join(' ')}" fill="none" stroke="${esc(color)}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`).join('')}
+    ${pts.filter(Boolean).map(([x, y]) => `<circle cx="${f(x)}" cy="${f(y)}" r="2.3" fill="${esc(color)}"/>`).join('')}
   </svg>`;
 }
 
@@ -161,6 +178,7 @@ function infoHTML(v) {
   const info = ELEMENT_INFO[m.id] ?? { def: '', life: '' };
   return dialogShell(`${esc(m.name)} <span class="unit-tag">${esc(m.unit)}</span>`, `
       <p><b>정의</b> ${esc(info.def)}</p>
+      ${info.note ? `<p class="def-note">${esc(info.note)}</p>` : ''}
       <p><b>생활 연결</b> ${esc(info.life)}</p>
       <p class="think">${ELEMENT_INFO_LAST}</p>`, 'info');
 }

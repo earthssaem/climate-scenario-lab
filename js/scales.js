@@ -91,5 +91,7 @@ export function mapScale(v, which) {
   const color = (val) => ramp(stops, (val - min) / span);
   const gradient = `linear-gradient(to right, ${stops.map((c, i) => `${c} ${(i / (stops.length - 1)) * 100}%`).join(', ')})`;
   const outside = (val) => val < min - 1e-9 || val > max + 1e-9;
-  return { type, min, max, color, gradient, low, high, outside };
+  // 연도 보기에서 연별 색 범위(scale.annual)를 쓰면 범례에 표시
+  const annualRange = s.year != null && !!el?.scale?.period && !!el?.scale?.annual;
+  return { type, min, max, color, gradient, low, high, outside, annualRange };
 }

@@ -25,7 +25,7 @@ export const T = {
   pickerIntro: '네 시나리오 모두 IPCC 제6차 평가보고서(AR6)에서 같은 방법으로 계산한 결과입니다. 차이는 "미래 사회와 온실가스 배출을 어떻게 가정했는가"입니다.',
   pickerNameHelp: '이름 읽는 법: SSP 뒤 숫자 = 어떤 사회인가 / 하이픈 뒤 숫자 = 2100년에 지구를 데우는 힘(W/m²)',
   pickerTextbook: '교과서 그래프는 전 지구 평균·산업화 이전 기준이라 이 앱(우리나라·2000~2019 기준)과 숫자가 다릅니다.',
-  emissionCaption: '전 지구 연간 CO₂ 배출량(GtCO₂/년) · 대기 중 농도가 아님 · 출처 IPCC AR6',
+  emissionCaption: '전 지구 연간 CO₂ 배출량(GtCO₂/년) · 대기 중 농도가 아님 · 가로축은 실제 연도 간격(점 = 자료가 있는 해) · 네 곡선 같은 세로축 · 출처 IPCC AR6',
   co2Label: '2100년 예상 대기 중 CO₂ 농도',
   noneScenario: '선택 안 함',
   noneScenarioDesc: '시나리오 하나만 봅니다.',
@@ -95,7 +95,12 @@ export const ELEMENT_INFO = {
   prcp: { def: '1년 동안 내린 비와 눈의 양.', life: '물 자원, 홍수와 가뭄, 생태계와 관련이 있어요.' },
   heat: { def: '하루 최고기온이 33℃ 이상인 날의 수.', life: '건강, 야외 활동, 전력 사용과 관련이 있어요.' },
   tropical: { def: '하루 최저기온이 25℃ 이상인 날의 수.', life: '잠, 건강, 냉방과 관련이 있어요.' },
-  cold: { def: '하루 최저기온이 −12℃ 이하인 날의 수.', life: '난방, 겨울철 생활, 겨울 생태와 관련이 있어요.' },
+  cold: {
+    def: '하루 최저기온이 −12℃ 이하인 날의 수.',
+    // 실제 자료에서 경남·경북·대구 등은 전반기·중반기 한파일수가 현재보다 크게 나옴 — 값은 그대로 두고 안내만
+    note: '현재기후는 관측을 바탕으로 만든 값이고, 전망은 기후모델로 계산한 값이에요. 두 자료는 만든 방법이 달라서 가까운 미래에는 차이가 작거나 방향이 엇갈릴 수 있어요.',
+    life: '난방, 겨울철 생활, 겨울 생태와 관련이 있어요.',
+  },
 };
 export const ELEMENT_INFO_LAST = '이 변화가 생태계와 우리 생활에 어떤 영향을 줄지 생각해 보세요.';
 
@@ -214,6 +219,27 @@ export function withEun(word) {
 /** 연별 값이 없고 공식 기간값만 있는 지역 안내 (예: "전국은 기간 평균값만 제공됩니다") */
 export const periodOnlyNote = (name) => `${withEun(name)} 기간 평균값만 제공됩니다`;
 export const periodOnlyHint = '지도에서 시도를 고르면 연도별 값을 볼 수 있어요.';
+
+/* ───────────── 출처 (푸터) ───────────── */
+
+const SOURCE_LABELS = { projection: '전망', current: '현재기후', official: '공식 기간값', obs: '장기관측', co2: 'CO₂ 배출 경로' };
+export const IPCC_CREDIT = 'IPCC AR6 WG1 SPM.4 data, CC BY 4.0';
+
+/** IPCC 출처: "IPCC AR6 WG1 SPM.4 data, CC BY 4.0" 문구가 반드시 들어가게 (자세한 인용은 괄호로 뒤에) */
+export function ipccSource(text) {
+  const t = String(text ?? '').trim();
+  if (t.includes(IPCC_CREDIT)) return t;
+  const detail = t.replace(/IPCC\s+AR6\s+WG1\s+SPM\.4(\s+data)?/i, '').replace(/,?\s*\(?CC BY 4\.0\)?/i, '')
+    .trim().replace(/^[,(\s]+|[,)\s]+$/g, '').trim();
+  return detail ? `${IPCC_CREDIT} (${detail})` : IPCC_CREDIT;
+}
+
+/** manifest.sources → 푸터 출처 줄 [{label, text}] (정해진 순서, 그 밖의 키는 뒤에) */
+export function sourceLines(sources) {
+  if (!sources) return [];
+  const keys = [...Object.keys(SOURCE_LABELS).filter((k) => sources[k]), ...Object.keys(sources).filter((k) => !(k in SOURCE_LABELS))];
+  return keys.map((k) => ({ label: SOURCE_LABELS[k] ?? k, text: k === 'co2' ? ipccSource(sources[k]) : String(sources[k]) }));
+}
 
 /** HTML에 넣을 글자 이스케이프 */
 export function esc(str) {
