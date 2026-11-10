@@ -64,7 +64,7 @@ export function regionRowHTML(v) {
       <button class="x" data-action="clear-b" data-key="clear-b" aria-label="지역 비교 끝내기">✕</button></span>
       <button class="chip" data-action="nation" data-key="nation" ${pressed(s.regionA === '00')}>전국</button>`;
   } else {
-    body = `<span class="region-name">${name(s.regionA)}</span>
+    body = `${s.regionA !== '00' ? `<span class="region-name">${name(s.regionA)}</span>` : ''}
       <button class="chip" data-action="nation" data-key="nation" ${pressed(s.regionA === '00')}>전국</button>
       <button class="chip ghost" data-action="pick-b" data-key="pick-b">+ 비교 지역</button>`;
   }

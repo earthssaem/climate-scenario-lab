@@ -178,7 +178,9 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .hatch-sw { width: 22px; height: 14px; border: 1px solid var(--line-2); border-radius: 3px; display: inline-block; vertical-align: middle; margin-right: 4px;
   background: repeating-linear-gradient(45deg, #eef0f3 0 4px, #c4cad3 4px 6px); }
 .period-row, .region-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; }
-.period-row .chip { padding: 0 11px; }
+.period-row .bar-label, .region-row .bar-label { min-width: 0; margin-right: 2px; }
+.period-row { gap: 6px; }
+.period-row .chip { padding: 0 9px; font-size: 14.5px; }
 .period-row .chip .yr { display: block; font-size: 12px; font-weight: 500; opacity: 0.8; line-height: 1.1; }
 .period-row .chip { display: inline-flex; flex-direction: column; justify-content: center; line-height: 1.2; }
 .year-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 6px 0 14px; border-radius: 10px; background: var(--ink); color: #fff; font-weight: 700; }
