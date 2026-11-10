@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>기후변화 시나리오 탐구실</title>
+  <meta name="description" content="기상청 SSP 기후변화 시나리오 자료로 우리나라의 지역·기후요소·시기별 미래 기후를 직접 비교하는 탐구 웹앱">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%231c2330'/%3E%3Cpath d='M6 20c4-6 8 2 12-4s6-2 8-4' stroke='%23fff' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- 그래프: Chart.js 4 + annotation 플러그인 (CDN, 버전 고정) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js" defer></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div id="mockBanner" class="mock-banner" role="status" hidden>⚠ 예시 데이터로 화면을 확인하는 중입니다. 표시된 값은 실제 기후 자료가 아닙니다.</div>
+
+  <header class="top">
+    <div class="brand-row">
+      <a class="brand" id="homeLink" href="#" title="처음 화면으로" aria-label="기후변화 시나리오 탐구실 — 처음 화면으로">
+        <span class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="34" height="34"><circle cx="16" cy="16" r="14" fill="#1c2330"/><path d="M6 20c4-6 8 2 12-4s6-2 8-4" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+        </span>
+        <div class="brand-text">
+          <h1>기후변화 시나리오 탐구실</h1>
+          <p class="sub">기상청 SSP 시나리오로 우리나라의 미래 기후를 지역·요소·시기별로 비교해요</p>
+        </div>
+      </a>
+    </div>
+  </header>
+
+  <div class="ctrl-wrap" id="ctrlWrap">
+    <div class="ctrl-inner">
+      <div id="controls" class="controls" aria-label="탐구 조건"></div>
+      <div class="sentence-row">
+        <p id="sentence" class="sentence" aria-live="polite"></p>
+        <button class="bar-toggle" id="barToggle" data-action="toggle-bar" data-key="bar-toggle" aria-controls="controls" aria-expanded="true">조건 접기 ▴</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="layout">
+    <section class="card map-card" id="mapCard" aria-label="지도"></section>
+    <div class="right-col">
+      <section class="card chart-card" id="chartCard" aria-label="시계열 그래프"></section>
+      <section class="card numbers-card" id="numbersCard" aria-label="수치 비교"></section>
+    </div>
+  </main>
+
+  <details class="card aux">
+    <summary>보조 분석</summary>
+    <p class="placeholder">준비 중: 지역 순위 막대, 기온–폭염일수 산점도</p>
+  </details>
+
+  <div id="fatal" class="fatal" role="alert" hidden></div>
+  <div id="dialogRoot"></div>
+
+  <footer>
+    <p class="src">자료: 기상청 기후정보포털(SSP 남한상세 행정구역 전망, MK-PRISM), 기상청 관측자료, IPCC AR6 WG1 (CC BY 4.0)</p>
+    <p>© 2026 제작: 김연경(earthssaem@gmail.com) | <a class="hub" href="https://earthssaem-lab.vercel.app/" target="_blank" rel="noopener">연경쌤의 지구과학 실험실 둘러보기 →</a></p>
+  </footer>
+</body>
+</html>
