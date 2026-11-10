@@ -225,22 +225,17 @@ export const periodOnlyHint = '지도에서 시도를 고르면 연도별 값을
 /* ───────────── 출처 (푸터) ───────────── */
 
 const SOURCE_LABELS = { projection: '전망', current: '현재기후', official: '공식 기간값', obs: '장기관측', co2: 'CO₂ 배출 경로' };
-export const IPCC_CREDIT = 'IPCC AR6 WG1 SPM.4 data, CC BY 4.0';
 
-/** IPCC 출처: "IPCC AR6 WG1 SPM.4 data, CC BY 4.0" 문구가 반드시 들어가게 (자세한 인용은 괄호로 뒤에) */
-export function ipccSource(text) {
-  const t = String(text ?? '').trim();
-  if (t.includes(IPCC_CREDIT)) return t;
-  const detail = t.replace(/IPCC\s+AR6\s+WG1\s+SPM\.4(\s+data)?/i, '').replace(/,?\s*\(?CC BY 4\.0\)?/i, '')
-    .trim().replace(/^[,(\s]+|[,)\s]+$/g, '').trim();
-  return detail ? `${IPCC_CREDIT} (${detail})` : IPCC_CREDIT;
-}
-
-/** manifest.sources → 푸터 출처 줄 [{label, text}] (정해진 순서, 그 밖의 키는 뒤에) */
+/** manifest.sources → [{label, text}] — 문구는 파일 그대로 (정해진 순서, 그 밖의 키는 뒤에) */
 export function sourceLines(sources) {
   if (!sources) return [];
   const keys = [...Object.keys(SOURCE_LABELS).filter((k) => sources[k]), ...Object.keys(sources).filter((k) => !(k in SOURCE_LABELS))];
-  return keys.map((k) => ({ label: SOURCE_LABELS[k] ?? k, text: k === 'co2' ? ipccSource(sources[k]) : String(sources[k]) }));
+  return keys.map((k) => ({ label: SOURCE_LABELS[k] ?? k, text: String(sources[k]) }));
+}
+
+/** 글자 속 https 주소를 새 탭 링크로 (먼저 이스케이프) */
+export function linkify(text) {
+  return esc(text).replace(/https?:\/\/[^\s)」,<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 }
 
 /** HTML에 넣을 글자 이스케이프 */

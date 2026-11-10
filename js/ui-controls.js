@@ -1,7 +1,7 @@
 // ui-controls.js — 상단 바, 조건 토큰 줄, 선택 창들(지역·요소·시나리오·기간·표시 방식), ⓘ 창
 // 화면은 상태(view.s)로만 그립니다. 버튼은 data-action 속성만 달고, 실제 처리는 main.js 한 곳에서 합니다.
 import {
-  T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, modeName, derivedNote, derivedShort, periodOnlyNote, periodOnlyHint,
+  T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, modeName, derivedNote, derivedShort, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
 } from './text.js';
 import * as D from './data.js';
 
@@ -248,6 +248,16 @@ function graphInfoHTML(v) {
     ${v.stations?.missingNote ? `<p class="help">${esc(v.stations.missingNote)}</p>` : ''}`, 'info');
 }
 
+/** 푸터 [자료 출처 ⓘ] 창: manifest.sources와 지도 파일(sido.json)의 출처·출처표시 문구를 그대로 */
+function sourcesHTML(v) {
+  const items = sourceLines(v.manifest?.sources).map((l) => `<dt>${esc(l.label)}</dt><dd>${linkify(l.text)}</dd>`);
+  const g = v.geo;
+  if (g && (g.source || g.attribution)) {
+    items.push(`<dt>지도 경계</dt>${g.source ? `<dd>${linkify(g.source)}</dd>` : ''}${g.attribution ? `<dd>${linkify(g.attribution)}</dd>` : ''}`);
+  }
+  return dialogShell('자료 출처', `<dl class="src-items">${items.join('')}</dl>`, 'info sources');
+}
+
 let lastDialog = '';
 /** 열린 창 그리기 */
 export function renderDialogs(root, v) {
@@ -257,6 +267,7 @@ export function renderDialogs(root, v) {
   if (s.ui.picker) { key = `picker-${s.ui.picker}`; html = pickerHTML(v); }
   else if (s.ui.info && v.elMeta) { key = `info-${v.elMeta.id}`; html = infoHTML(v); }
   else if (s.ui.graphInfo) { key = 'graphinfo'; html = graphInfoHTML(v); }
+  else if (s.ui.sources) { key = 'sources'; html = sourcesHTML(v); }
   else if (s.ui.chooser && v.elMeta) {
     key = `chooser-${s.ui.chooser}`;
     html = { region: regionChooser, element: elementChooser, period: periodChooser, mode: modeChooser }[s.ui.chooser]?.(v) ?? '';

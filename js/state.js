@@ -25,6 +25,7 @@ export const DEFAULT_STATE = Object.freeze({
     mapTab: 'A',         // 지도 영역이 좁을 때 보이는 지도 (A | B)
     popup: null,         // 지도 말풍선 { code, fig, x, y } — 잠깐 보였다 사라짐
     details: false,      // [▾ 기간별 표] 펼침
+    sources: false,      // 푸터 [자료 출처 ⓘ] 창
   }),
 });
 
@@ -76,11 +77,12 @@ export function createStore() {
   const actions = {
     reset: () => set(clone(DEFAULT_STATE)),
     setElement: (id) => set({ element: id, ui: { ...state.ui, info: false, chooser: null } }),
-    openPicker: (slot) => setUi({ picker: slot, info: false, chooser: null, graphInfo: false }),
-    openInfo: () => setUi({ info: true, picker: null, chooser: null, graphInfo: false }),
-    openChooser: (kind) => setUi({ chooser: kind, picker: null, info: false, graphInfo: false }),
-    openGraphInfo: () => setUi({ graphInfo: true, picker: null, info: false, chooser: null }),
-    closeDialogs: () => setUi({ picker: null, info: false, chooser: null, graphInfo: false }),
+    openPicker: (slot) => setUi({ picker: slot, info: false, chooser: null, graphInfo: false, sources: false }),
+    openInfo: () => setUi({ info: true, picker: null, chooser: null, graphInfo: false, sources: false }),
+    openChooser: (kind) => setUi({ chooser: kind, picker: null, info: false, graphInfo: false, sources: false }),
+    openGraphInfo: () => setUi({ graphInfo: true, picker: null, info: false, chooser: null, sources: false }),
+    openSources: () => setUi({ sources: true, graphInfo: false, picker: null, info: false, chooser: null }),
+    closeDialogs: () => setUi({ picker: null, info: false, chooser: null, graphInfo: false, sources: false }),
     showPopup: (popup) => setUi({ popup }),
     hidePopup: () => { if (state.ui.popup) setUi({ popup: null }); },
     toggleDetails: () => setUi({ details: !state.ui.details }),

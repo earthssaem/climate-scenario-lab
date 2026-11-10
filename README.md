@@ -217,7 +217,7 @@ python3 -m http.server 8000          # http://localhost:8000/?data=mock 으로 �
 **안내·표기**
 - [x] 한파일수 ⓘ: 정의 바로 아래 "현재기후는 관측을 바탕으로 만든 값이고, 전망은 기후모델로 계산한 값이에요. …" (실제 자료에서 경남·경북·대구 등은 전반기·중반기 한파일수가 현재보다 크게 나옴 — 값은 그대로)
 - [x] 시나리오 창 CO₂ 미니 그래프: x축 실제 연도 간격(2015·2020·2030…, 점과 눈금), 0선(실선 + "0"), 네 곡선 같은 y축 범위. SSP1-2.6은 2080년부터 0선 아래
-- [x] 푸터 자료 출처 = `manifest.sources` 내용, IPCC는 "IPCC AR6 WG1 SPM.4 data, CC BY 4.0" 포함, 경계 자료 출처 표기 유지
+- [x] 푸터는 두 줄: "자료: 기상청 기후정보포털 · IPCC AR6 (CC BY 4.0) · 지도: 통계청 SGIS, admdongkor (CC BY 4.0)" + `[자료 출처 ⓘ]`, 제작자·허브 링크. CC BY 4.0은 라이선스 페이지로 연결. `[자료 출처 ⓘ]` 창에는 `manifest.sources`(전망·현재기후·공식 기간값·장기관측·CO₂)와 `data/geo/sido.json`의 `source`·`attribution`(= `data/geo/README.md`의 출처 표기 문구)을 그대로 보여 줌
 - [ ] Pretendard 글꼴, CDN(Chart.js·annotation), 허브 링크 — 배포 미리보기에서 직접 확인 (작업 환경에서는 외부 접속이 막혀 확인 못 함)
 
 ## 시험

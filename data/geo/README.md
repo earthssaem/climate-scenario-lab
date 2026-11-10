@@ -13,7 +13,7 @@
 
 > 본 데이터는 통계청 통계지리정보서비스(SGIS, https://sgis.kostat.go.kr)에서 공공누리 제1유형으로 개방한 행정동 경계를 가공한 것이며(가공: vuski/admdongkor, https://github.com/vuski/admdongkor), CC BY 4.0으로 배포됩니다.
 
-앱 푸터에도 같은 출처(통계청 SGIS·공공누리 제1유형·vuski/admdongkor·CC BY 4.0)를 링크와 함께 표시합니다. `sido.json`의 `attribution` 항목에도 위 문구가 들어 있습니다.
+앱 푸터에는 요약(지도: 통계청 SGIS, admdongkor, CC BY 4.0)을, 푸터의 `[자료 출처 ⓘ]` 창에는 `sido.json`의 `source`와 `attribution`(위 문구 그대로, 주소는 링크)을 보여 줍니다.
 
 ## 가공 (`tools/build_geo.py`)
 

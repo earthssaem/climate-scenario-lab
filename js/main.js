@@ -2,7 +2,7 @@
 // 모든 화면 영역은 같은 상태(store)로 한꺼번에 다시 그립니다. 각 영역은 상태를 따로 들고 있지 않습니다.
 import { createStore, obsAllowed, obsEffective } from './state.js';
 import * as D from './data.js';
-import { T, sourceLines, esc } from './text.js';
+import { T } from './text.js';
 import { renderTopControls, renderTokens, renderDialogs } from './ui-controls.js';
 import { mountMap, renderMap, popupPosition } from './map.js';
 import { renderChart } from './chart.js';
@@ -85,7 +85,6 @@ function render() {
   document.documentElement.style.setProperty('--banner-h', mock ? `${$('mockBanner').offsetHeight}px` : '0px');
   if (!manifest) return;
 
-  renderSources(v);
   renderTopControls($('topControls'), v);
   renderTokens($('tokens'), v);
   renderMap($('mapCard'), v);
@@ -98,17 +97,6 @@ function render() {
   if (dlg.opened) $('dialogRoot').querySelector('[data-key="dlg-close"]')?.focus();
   else if (dlg.closed && lastOpener) document.querySelector(`[data-key="${lastOpener}"]`)?.focus({ preventScroll: true });
   else if (focusKey) document.querySelector(`[data-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: true });
-}
-
-/** 푸터 자료 출처: manifest.sources 그대로 (IPCC는 "IPCC AR6 WG1 SPM.4 data, CC BY 4.0" 문구 포함) */
-let sourcesDrawn = '';
-function renderSources(v) {
-  const key = JSON.stringify(v.manifest?.sources ?? null);
-  if (key === sourcesDrawn) return;
-  sourcesDrawn = key;
-  const lines = sourceLines(v.manifest?.sources);
-  if (!lines.length) return;
-  $('sourceList').innerHTML = `<p class="src src-title">자료 출처</p>${lines.map((l) => `<p class="src"><b>${esc(l.label)}</b> ${esc(l.text)}</p>`).join('')}`;
 }
 
 /* ───────────── 사용자 조작 → 상태 변경 ───────────── */
@@ -128,6 +116,7 @@ function handle(action, ds, el, evt) {
     case 'element': return A.setElement(ds.id);
     case 'info': lastOpener = 'info'; return A.openInfo();
     case 'graph-info': lastOpener = 'graph-info'; return A.openGraphInfo();
+    case 'sources': lastOpener = 'sources'; return A.openSources();
     case 'chooser': lastOpener = `tk-${ds.kind}`; return A.openChooser(ds.kind);
     case 'picker': lastOpener = el?.dataset.key || `tk-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
     case 'pick-scen': return A.setScenario(ds.slot, ds.id || null);
@@ -182,7 +171,7 @@ function bindEvents() {
   // SVG 지역처럼 <button>이 아닌 누름 대상: Enter / Space
   document.addEventListener('keydown', (e) => {
     const ui = store.get().ui;
-    if (e.key === 'Escape' && (ui.picker || ui.info || ui.chooser || ui.graphInfo)) { A.closeDialogs(); return; }
+    if (e.key === 'Escape' && (ui.picker || ui.info || ui.chooser || ui.graphInfo || ui.sources)) { A.closeDialogs(); return; }
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const t = e.target.closest?.('[data-action][role="button"]');
     if (!t || t.tagName === 'BUTTON' || t.getAttribute('aria-disabled') === 'true') return;
