@@ -25,7 +25,7 @@ export const T = {
   pickerIntro: '네 시나리오 모두 IPCC 제6차 평가보고서(AR6)에서 같은 방법으로 계산한 결과입니다. 차이는 "미래 사회와 온실가스 배출을 어떻게 가정했는가"입니다.',
   pickerNameHelp: '이름 읽는 법: SSP 뒤 숫자 = 어떤 사회인가 / 하이픈 뒤 숫자 = 2100년에 지구를 데우는 힘(W/m²)',
   pickerTextbook: '교과서 그래프는 전 지구 평균·산업화 이전 기준이라 이 앱(우리나라·2000~2019 기준)과 숫자가 다릅니다.',
-  emissionCaption: '전 지구 연간 CO₂ 배출량(GtCO₂/년) · 대기 중 농도가 아님 · 출처 IPCC AR6',
+  emissionCaption: '전 지구 연간 CO₂ 배출량(GtCO₂/년) · 대기 중 농도가 아님 · 가로축은 실제 연도 간격(점 = 자료가 있는 해) · 네 곡선 같은 세로축 · 출처 IPCC AR6',
   co2Label: '2100년 예상 대기 중 CO₂ 농도',
   noneScenario: '선택 안 함',
   noneScenarioDesc: '시나리오 하나만 봅니다.',
@@ -35,6 +35,35 @@ export const T = {
   footerSources: '자료: 기상청 기후정보포털(SSP 남한상세 행정구역 전망, MK-PRISM), 기상청 관측자료, IPCC AR6 WG1 (CC BY 4.0)',
 };
 
+// 그래프 아래 한 줄 (긴 안내는 그래프 ⓘ 안으로)
+T.graphLineObs = '회색 = 지점 관측 · 색 선 = 지역 평균 전망';
+T.graphLine = '색 선 = 지역 평균 전망 · 굵은 선분 = 20년 평균';
+T.graphLinePeriodOnly = '굵은 선분 = 공식 20년 평균';
+T.mockBadge = '예시';
+T.mockWatermark = '예시 데이터';
+T.curNoDiffShort = '현재는 차이 없음';
+T.noYearValue = '연도별 값 없음';
+T.details = '기간별 표';
+T.regionChooser = '지역 고르기';
+T.elementChooser = '기후요소 고르기';
+T.periodChooser = '기간 고르기';
+T.modeChooser = '표시 방식';
+T.regionA = '지역 A';
+T.regionB = '비교 지역 B';
+T.noCompare = '비교 안 함';
+T.endYear = '연도 보기 끝내기';
+T.diffMapTag = '차이 B−A 지도';
+
+/** 그래프 ⓘ 창 내용 (그래프 층 설명 + 긴 안내문) */
+export const GRAPH_INFO = [
+  ['색 선', '시나리오별 전망(지역 면적 평균, 5개 기후모델 평균). 4개 모두를 켜면 나머지 두 시나리오가 가는 선으로 더해져요.'],
+  ['진한 회색 선', '현재기후(2000~2019, 지역 면적 평균). 옅은 회색 띠는 그 20년 평균이고, 변화량 모드에서는 0선과 같아요.'],
+  ['굵은 선분', '기간별 20년 평균(공식값). 2061~2080은 공식 20년 값이 없어 앱에서 계산한 평균이라 옅게 그려요.'],
+  ['회색 점', '장기관측(특정 관측 지점의 값). 평균기온 + 변화량 모드에서만 켤 수 있어요.'],
+  ['아래 기간 띠', '누르면 그 기간이 선택되고, 지도는 그 기간의 20년 평균을 보여 줘요.'],
+  ['그래프 누르기', '그 연도를 보고, 지도도 그 연도로 바뀌어요.'],
+];
+
 /** p3처럼 파생 기간의 안내 문구 — 기간 정보(start/end)로 만듭니다. */
 export function derivedNote(meta) {
   const a = meta.start;
@@ -42,6 +71,15 @@ export function derivedNote(meta) {
   return `* 공식 10년 값(${a}~${a + 9}, ${b}~${b + 9})의 평균으로 앱에서 계산했습니다.`;
 }
 export const derivedChipNote = '* 공식 10년 값의 평균(앱 계산)';
+
+/**
+ * 파생 기간(2061~2080) 짧은 설명 — 화면용.
+ * 자료 파일에 계산 방법(derived.method)이 있으면 "기상청 연도별 값으로 앱에서 계산한 평균"으로 짧게 쓰고,
+ * 자세한 방법은 그래프 ⓘ 안에만 보여 줍니다. 방법이 없으면(10년 값으로 앱이 계산) 그 방식대로.
+ */
+export function derivedShort(meta, method) {
+  return method ? `* ${meta.start}~${meta.end}: 기상청 연도별 값으로 앱에서 계산한 평균` : derivedNote(meta);
+}
 
 /** 시나리오 한 줄 설명 (기상청 설명을 학생 눈높이로) */
 export const SCEN_DESC = {
@@ -57,7 +95,12 @@ export const ELEMENT_INFO = {
   prcp: { def: '1년 동안 내린 비와 눈의 양.', life: '물 자원, 홍수와 가뭄, 생태계와 관련이 있어요.' },
   heat: { def: '하루 최고기온이 33℃ 이상인 날의 수.', life: '건강, 야외 활동, 전력 사용과 관련이 있어요.' },
   tropical: { def: '하루 최저기온이 25℃ 이상인 날의 수.', life: '잠, 건강, 냉방과 관련이 있어요.' },
-  cold: { def: '하루 최저기온이 −12℃ 이하인 날의 수.', life: '난방, 겨울철 생활, 겨울 생태와 관련이 있어요.' },
+  cold: {
+    def: '하루 최저기온이 −12℃ 이하인 날의 수.',
+    // 실제 자료에서 경남·경북·대구 등은 전반기·중반기 한파일수가 현재보다 크게 나옴 — 값은 그대로 두고 안내만
+    note: '현재기후는 관측을 바탕으로 만든 값이고, 전망은 기후모델로 계산한 값이에요. 두 자료는 만든 방법이 달라서 가까운 미래에는 차이가 작거나 방향이 엇갈릴 수 있어요.',
+    life: '난방, 겨울철 생활, 겨울 생태와 관련이 있어요.',
+  },
 };
 export const ELEMENT_INFO_LAST = '이 변화가 생태계와 우리 생활에 어떤 영향을 줄지 생각해 보세요.';
 
@@ -163,6 +206,39 @@ export function conditionSentence(v) {
     parts.push(modeName(s.mode, pct));
   }
   return parts.join(' · ');
+}
+
+/** "전국은", "서울은", "경기는" — 받침에 맞는 조사 */
+export function withEun(word) {
+  const last = String(word).trim().slice(-1);
+  const code = last.charCodeAt(0);
+  if (code >= 0xac00 && code <= 0xd7a3) return word + ((code - 0xac00) % 28 ? '은' : '는');
+  return `${word}은(는)`;
+}
+
+/** 연별 값이 없고 공식 기간값만 있는 지역 안내 (예: "전국은 기간 평균값만 제공됩니다") */
+export const periodOnlyNote = (name) => `${withEun(name)} 기간 평균값만 제공됩니다`;
+export const periodOnlyHint = '지도에서 시도를 고르면 연도별 값을 볼 수 있어요.';
+
+/* ───────────── 출처 (푸터) ───────────── */
+
+const SOURCE_LABELS = { projection: '전망', current: '현재기후', official: '공식 기간값', obs: '장기관측', co2: 'CO₂ 배출 경로' };
+export const IPCC_CREDIT = 'IPCC AR6 WG1 SPM.4 data, CC BY 4.0';
+
+/** IPCC 출처: "IPCC AR6 WG1 SPM.4 data, CC BY 4.0" 문구가 반드시 들어가게 (자세한 인용은 괄호로 뒤에) */
+export function ipccSource(text) {
+  const t = String(text ?? '').trim();
+  if (t.includes(IPCC_CREDIT)) return t;
+  const detail = t.replace(/IPCC\s+AR6\s+WG1\s+SPM\.4(\s+data)?/i, '').replace(/,?\s*\(?CC BY 4\.0\)?/i, '')
+    .trim().replace(/^[,(\s]+|[,)\s]+$/g, '').trim();
+  return detail ? `${IPCC_CREDIT} (${detail})` : IPCC_CREDIT;
+}
+
+/** manifest.sources → 푸터 출처 줄 [{label, text}] (정해진 순서, 그 밖의 키는 뒤에) */
+export function sourceLines(sources) {
+  if (!sources) return [];
+  const keys = [...Object.keys(SOURCE_LABELS).filter((k) => sources[k]), ...Object.keys(sources).filter((k) => !(k in SOURCE_LABELS))];
+  return keys.map((k) => ({ label: SOURCE_LABELS[k] ?? k, text: k === 'co2' ? ipccSource(sources[k]) : String(sources[k]) }));
 }
 
 /** HTML에 넣을 글자 이스케이프 */

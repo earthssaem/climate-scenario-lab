@@ -1,7 +1,7 @@
 // numbers.js — 수치 비교 표 + 기간별 차이 막대그래프(B−A)
 // 데이터에 나타난 값을 그대로 보여 줍니다. 증가·감소 같은 결론 문구를 자동으로 붙이지 않습니다.
 import * as D from './data.js';
-import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedChipNote } from './text.js';
+import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedShort } from './text.js';
 
 function cellButton(pid, enabled, big, small, label) {
   return `<button class="cell" data-action="period" data-id="${esc(pid)}" ${enabled ? '' : 'disabled'}
@@ -106,7 +106,7 @@ function barsHTML(v, width) {
   }));
 
   // 세로 범위: 요소 파일의 고정 scale(diff / pctDiff)을 써서 조건을 바꿔도 막대 축이 과장되지 않게
-  const sc = el.scale ?? {};
+  const sc = el.scale?.period ?? el.scale ?? {};   // 기간 범위 (scale이 기간/연별로 나뉜 형식도 받음)
   let m = v.pct ? sc.pctDiff : sc.diff;
   const all = vals.flat().filter(D.isNum);
   const maxAbs = all.length ? Math.max(...all.map(Math.abs)) : 0;
@@ -169,22 +169,74 @@ function barsHTML(v, width) {
     <svg class="bars-svg" viewBox="0 0 ${W} ${H}" role="group" aria-label="기간별 시나리오 차이 막대그래프">${g}</svg>${legend}`;
 }
 
-export function renderNumbers(root, v) {
-  if (!v.manifest) return;
-  root.querySelector(':scope > .overlay')?.remove();
-  if (!v.el) {
-    if (!root.dataset.drawn) root.innerHTML = `<div class="card-head"><h2>수치 비교</h2></div><div style="min-height:200px"></div>`;
-    const html = v.elStatus === 'error'
-      ? `<div class="overlay error"><span class="pill">${T.loadFail} <button class="chip small" data-action="retry-element">${T.retry}</button></span></div>`
-      : `<div class="overlay"><span class="pill"><span class="spinner"></span>${T.loading}</span></div>`;
-    root.insertAdjacentHTML('beforeend', html);
+/* ───────────── 핵심 수치 줄 ───────────── */
+
+export function renderKeybar(root, v) {
+  const { s, el, elMeta, manifest } = v;
+  if (!manifest || !elMeta) return;
+  if (!el) {
+    root.innerHTML = `<div class="kb-row"><span class="pill">${v.elStatus === 'error' ? T.loadFail : `<span class="spinner"></span>${T.loading}`}</span></div>`;
     return;
   }
-  root.dataset.drawn = '1';
+  const periods = manifest.periods;
+  const regions = [s.regionA, ...(s.regionB ? [s.regionB] : [])];
+  const compare = regions.length === 2;
+  const A = v.scenMeta(s.scenA);
+  const B = s.scenB ? v.scenMeta(s.scenB) : null;
+  const pMeta = s.year == null ? v.periodMeta(s.period) : null;
+  const ySrc = s.year != null ? D.yearSource(el, s.year) : null;
+  const noDiff = (pMeta && pMeta.id === 'cur') || ySrc === 'current';
+  const calc = pMeta?.derived ? `<span class="calc">${T.appCalc}</span>` : '';
+  const badge = v.mock ? `<span class="mock-badge" title="${T.mockBanner}">${T.mockBadge}</span>` : '';
+  const chgUnit = unitOf(elMeta, v.pct, 'change');
+  const nm = (c) => esc(v.regionMeta(c)?.short ?? c);
+
+  const raw = (scen, r) => (s.year != null ? D.regionYearValue(el, scen, r, s.year) : D.periodValue(el, scen, s.period, r, periods));
+  const missing = (r) => (s.year != null && !D.hasAnnual(el, r) ? T.noYearValue : T.noData);
+
+  const item = (slot, m, r) => {
+    const value = raw(m.id, r);
+    const change = D.toMode(value, D.curValue(el, r), 'chg', v.pct);
+    let big;
+    let small;
+    if (!D.isNum(value)) { big = `<span class="na">${missing(r)}</span>`; small = ''; }
+    else {
+      const valTxt = withUnit(fmtNum(value), elMeta.unit);
+      const chgTxt = withUnit(fmtSigned(change), chgUnit);
+      [big, small] = s.mode === 'abs' ? [valTxt, chgTxt] : [chgTxt, valTxt];
+      if (noDiff && s.mode !== 'abs') small = valTxt;
+    }
+    return `<span class="kb-item"><span class="ab">${slot}</span><span class="sdot" style="--c:${esc(m.color)}"></span><span class="lbl">${esc(m.label)}</span>
+      <b class="big">${big}</b>${small ? `<span class="small">(${small})</span>` : ''}${calc}${D.isNum(value) ? badge : ''}</span>`;
+  };
+  const diffItem = (r) => {
+    if (!B) return '';
+    if (noDiff) return `<span class="kb-item diff"><span class="lbl">B − A</span><b class="big na">${T.curNoDiffShort}</b></span>`;
+    const a = D.toMode(raw(s.scenA, r), D.curValue(el, r), s.mode, v.pct);
+    const b = D.toMode(raw(s.scenB, r), D.curValue(el, r), s.mode, v.pct);
+    const d = D.diffBA(a, b);
+    return `<span class="kb-item diff"><span class="lbl">B − A</span><b class="big">${D.isNum(d) ? fmtDiff(d, elMeta, v.pct) : `<span class="na">${missing(r)}</span>`}</b>
+      <span class="small">(${T.appCalc})</span>${D.isNum(d) ? badge : ''}</span>`;
+  };
+
+  root.innerHTML = regions.map((r, i) => `<div class="kb-row">
+      ${compare ? `<span class="kb-region"><span class="badge${i ? ' b' : ''}">${i ? 'B' : 'A'}</span>${nm(r)}</span>` : ''}
+      ${item('A', A, r)}${B ? item('B', B, r) : ''}${diffItem(r)}
+      ${i === 0 ? `<button class="details-btn" data-action="toggle-details" data-key="details" aria-expanded="${s.ui.details}" aria-controls="details">
+        ${s.ui.details ? '▴' : '▾'} ${T.details}</button>` : ''}
+    </div>`).join('');
+}
+
+/* ───────────── 펼쳐 보기: 기간별 표 + 차이 막대 + 보조 분석 자리 ───────────── */
+
+export function renderDetails(root, v) {
+  root.hidden = !v.s.ui.details;
+  if (root.hidden || !v.manifest || !v.el) return;
   const derived = v.manifest.periods.find((p) => p.derived);
   root.innerHTML = `
-    <div class="card-head"><h2>수치 비교</h2><span class="note">칸을 누르면 그 기간으로 바뀌어요</span></div>
+    <div class="card-head"><h2>${T.details}</h2><span class="note">칸을 누르면 그 기간으로 바뀌어요</span></div>
     ${tableHTML(v)}
-    <p class="note" style="margin-top:6px">${T.curColumnNote}${derived ? ` ${derivedChipNote}` : ''}</p>
-    ${barsHTML(v, root.clientWidth - 30)}`;
+    <p class="note" style="margin-top:6px">${T.curColumnNote}${derived ? ` ${esc(derivedShort(derived, D.derivedMethod(v.el, derived)))}` : ''}</p>
+    ${barsHTML(v, root.clientWidth - 40)}
+    <details class="aux"><summary>${T.auxTitle}</summary><p class="placeholder">${T.auxBody}</p></details>`;
 }

@@ -67,6 +67,17 @@ await test('2061~2080: 10년 공식값(2061, 2071) 평균, 하나라도 없으�
   assert.equal(D.derivedAvailable({ official: {} }, p3), false);
 });
 
+await test('2061~2080: 미리 계산된 값이 있으면 그 값, decades는 두 배치 모두 읽음', () => {
+  const p3 = PERIODS[3];
+  const PRE = { official: { periods: { ssp126: { p3: { 11: 15.5 } } }, decades: { ssp126: { '00': { 2061: 13.9, 2071: 14.0 } } } } };
+  assert.equal(D.periodValue(PRE, 'ssp126', 'p3', '11', PERIODS), 15.5);                 // 미리 계산된 값
+  assert.ok(Math.abs(D.periodValue(PRE, 'ssp126', 'p3', '00', PERIODS) - 13.95) < 1e-9);  // decades[시나리오][지역][연도]
+  assert.equal(D.decadeValue(EL, 'ssp126', 2061, '00'), 11.4);                            // decades[시나리오][연도][지역]
+  assert.equal(D.derivedAvailable(PRE, p3), true);
+  assert.equal(D.derivedAvailable({ official: { decades: { ssp126: { '00': { 2061: 1 } } } } }, p3), false); // 2071 없음
+  assert.equal(D.derivedMethod({ derived: { p3: { method: '방법' } } }, p3), '방법');
+});
+
 await test('변화량·변화율·차이', () => {
   assert.equal(D.toMode(12, 10, 'abs'), 12);
   assert.equal(D.toMode(12, 10, 'chg'), 2);
@@ -100,6 +111,22 @@ await test('y축 범위는 4개 시나리오 전체를 포함하고, A·B 선택
   assert.equal(z.min, 0);
 });
 
+await test('전국처럼 annual이 없는 지역: 연별 값 없음, 공식 기간값은 그대로, y축은 공식값으로 잡힘', () => {
+  const NAT = {
+    current: { startYear: 2000, annual: { 11: range(20, () => 12) } },            // 전국("00") 없음
+    projection: { startYear: 2021, annual: { ssp126: { 11: range(80, () => 13) }, ssp585: { 11: range(80, () => 15) } } },
+    official: { cur: { '00': 10, 11: 12 }, periods: { ssp126: { p4: { '00': 11 } }, ssp585: { p4: { '00': 14 } } } },
+  };
+  assert.equal(D.hasAnnual(NAT, '00'), false);
+  assert.equal(D.hasAnnual(NAT, '11'), true);
+  assert.deepEqual(D.blockRange(NAT, 'current'), [2000, 2019]);   // 범위는 다른 지역 배열로 판단
+  assert.deepEqual(D.blockRange(NAT, 'projection'), [2021, 2100]);
+  assert.equal(D.regionYearValue(NAT, 'ssp585', '00', 2050), null);  // 시도 값을 평균해 만들지 않음
+  assert.equal(D.periodValue(NAT, 'ssp585', 'p4', '00', PERIODS), 14);
+  const r = D.chartRange(NAT, { regions: ['00'], scenarios: ['ssp126', 'ssp585'], mode: 'chg', periods: PERIODS });
+  assert.ok(r.min <= 0 && r.max >= 4);
+});
+
 await test('상태: A·B 같은 시나리오 금지, 지역 비교 중 4개 모두 끄기, B 없으면 차이 지도 끄기', () => {
   const manifest = JSON.parse(readFileSync(new URL('../data/manifest.json', import.meta.url)));
   const st = createStore();
@@ -108,10 +135,10 @@ await test('상태: A·B 같은 시나리오 금지, 지역 비교 중 4개 모�
   assert.equal(st.get().scenB, 'ssp585');
   st.actions.setAll4(true);
   st.actions.startPickB();
-  st.actions.tapRegion('00');                            // regionA와 같으면 계속 기다림
+  st.actions.tapRegion(st.get().regionA);                 // regionA와 같으면 계속 기다림
   assert.equal(st.get().pickingRegionB, true);
-  st.actions.tapRegion('26');
-  assert.equal(st.get().regionB, '26');
+  st.actions.tapRegion('21');                            // 부산 (기상청 원자료 코드)
+  assert.equal(st.get().regionB, '21');
   assert.equal(st.get().showAll4, false);
   st.actions.setMapView('diff');
   st.actions.setScenario('B', null);

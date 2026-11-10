@@ -5,7 +5,10 @@
 
 /* ───────────── 불러오기·캐시 ───────────── */
 
-const BASE = 'data/';
+// 자료 폴더: 기본은 data/. 개발 중 예시 데이터를 볼 때만 ?data=mock → data-mock/ (지도 경계는 항상 data/geo)
+const MOCK_PARAM = typeof location !== 'undefined' && new URLSearchParams(location.search).get('data') === 'mock';
+const BASE = MOCK_PARAM ? 'data-mock/' : 'data/';
+const urlBase = (path) => (path.startsWith('geo/') ? 'data/' : BASE);
 const requests = new Map(); // path → Promise (진행 중이거나 끝난 요청을 재사용)
 const loaded = new Map();   // path → 성공한 데이터
 const failed = new Map();   // path → Error
@@ -24,7 +27,7 @@ const emit = () => listeners.forEach((fn) => fn());
  */
 export function loadJSON(path, { revalidate = false } = {}) {
   if (requests.has(path)) return requests.get(path);
-  const url = BASE + path + (version && !revalidate ? `?v=${encodeURIComponent(version)}` : '');
+  const url = urlBase(path) + path + (version && !revalidate ? `?v=${encodeURIComponent(version)}` : '');
   failed.delete(path);
   const p = Promise.resolve()
     .then(() => fetchImpl(url, revalidate ? { cache: 'no-cache' } : undefined))
@@ -54,15 +57,15 @@ export function statusOf(path) {
 export const getLoaded = (path) => loaded.get(path) ?? null;
 export const loadedPaths = () => [...loaded.keys()];
 
-/** 불러온 파일 중 하나라도 mock이면 true */
-export function anyMock() {
-  for (const d of loaded.values()) if (d && d.mock === true) return true;
+/** 불러온 파일 중 하나라도 mock이면 true (exclude: 따지지 않을 경로 — 예: 지도 경계) */
+export function anyMock(exclude = []) {
+  for (const [path, d] of loaded) if (!exclude.includes(path) && d && d.mock === true) return true;
   return false;
 }
 
 export const PATHS = {
   manifest: 'manifest.json',
-  geo: 'geo/sido-tiles.json',
+  geo: 'geo/sido.json',
   stations: 'obs/stations.json',
   emissions: 'co2/emissions.json',
 };
@@ -86,6 +89,16 @@ export function seriesOf(el, source, region) {
   const arr = source === 'current' ? block.annual[region] : block.annual[source]?.[region];
   if (!Array.isArray(arr)) return null;
   return { startYear: block.startYear, values: arr };
+}
+
+/**
+ * 이 지역의 연별 자료(annual)가 파일에 있는지. 기상청 시도 연자료에는 전국 열이 없어서
+ * 전국("00")은 공식 기간값만 있고 annual에는 없을 수 있습니다. (시도 값을 평균해 만들지 않습니다)
+ */
+export function hasAnnual(el, region) {
+  if (!el) return false;
+  if (Array.isArray(el.current?.annual?.[region])) return true;
+  return Object.values(el.projection?.annual ?? {}).some((sc) => Array.isArray(sc?.[region]));
 }
 
 /** 자료 블록이 덮는 연도 범위 [첫해, 끝해] — 전국(00) 또는 첫 지역 배열 길이로 판단 */
@@ -144,25 +157,58 @@ export function decadeStarts(meta) {
   return out;
 }
 
-/** 파생 기간을 계산할 10년 공식값이 (어느 시나리오에든) 있는지 — 없으면 칩을 비활성화 */
+/**
+ * 10년 공식값 하나. 두 가지 배치를 모두 받습니다.
+ *   decades[시나리오][구간 시작 연도][지역]   (형식 설명 5-3)
+ *   decades[시나리오][지역][구간 시작 연도]   (기상청 자료 가공 스크립트 출력)
+ */
+export function decadeValue(el, scen, start, region) {
+  const dec = el?.official?.decades?.[scen];
+  if (!dec) return null;
+  const v = dec[String(start)]?.[region] ?? dec[region]?.[String(start)];
+  return isNum(v) ? v : null;
+}
+
+/** 전처리에서 미리 계산해 official.periods에 넣은 파생 기간 값 (있으면 이것을 씀) */
+function precomputed(el, scen, pid, region) {
+  const v = el?.official?.periods?.[scen]?.[pid]?.[region];
+  return isNum(v) ? v : null;
+}
+
+/** 파생 기간 값을 보여 줄 수 있는지 (미리 계산된 값 또는 10년 공식값이 어느 시나리오·지역에든 있으면) — 없으면 칩 비활성 */
 export function derivedAvailable(el, meta) {
+  const per = el?.official?.periods;
+  if (per && Object.values(per).some((sc) => sc?.[meta.id] && Object.values(sc[meta.id]).some(isNum))) return true;
   const dec = el?.official?.decades;
   if (!dec) return false;
   const starts = decadeStarts(meta);
-  return Object.values(dec).some((sc) => sc && starts.every((y) => sc[String(y)] && typeof sc[String(y)] === 'object'));
+  return Object.entries(dec).some(([scen, sc]) => {
+    const regions = new Set([...Object.keys(sc ?? {}), ...Object.values(sc ?? {}).flatMap((x) => (x && typeof x === 'object' ? Object.keys(x) : []))]);
+    return [...regions].some((r) => starts.every((y) => decadeValue(el, scen, y, r) != null));
+  });
 }
 
-/** 공식 10년 값들의 평균 (앱 계산). 구간 안의 10년 값이 하나라도 없으면 null */
+/**
+ * 파생 기간(공식 20년 값이 없는 구간, 2061~2080) 값 — "앱 계산" 표시 대상
+ *  1) 전처리에서 미리 계산해 official.periods에 넣었으면 그 값
+ *  2) 아니면 공식 10년 값들의 평균 (구간 안의 10년 값이 하나라도 없으면 null)
+ */
 export function derivedPeriodValue(el, scen, meta, region) {
-  const dec = el?.official?.decades?.[scen];
-  if (!dec) return null;
+  const pre = precomputed(el, scen, meta.id, region);
+  if (pre != null) return pre;
   const vals = [];
   for (const y of decadeStarts(meta)) {
-    const v = dec[String(y)]?.[region];
-    if (!isNum(v)) return null;
+    const v = decadeValue(el, scen, y, region);
+    if (v == null) return null;
     vals.push(v);
   }
   return vals.length ? mean(vals) : null;
+}
+
+/** 파생 기간 계산 방법 설명 (자료 파일의 derived[id].method가 있으면 그것) */
+export function derivedMethod(el, meta) {
+  const m = el?.derived?.[meta.id]?.method;
+  return typeof m === 'string' && m ? m : null;
 }
 
 /** 기간 값: 현재(cur)는 공식 현재기후 값, 파생 기간은 10년 값 평균, 나머지는 공식 20년 값 */
@@ -214,12 +260,13 @@ export function niceStep(span, target = 6) {
 }
 
 /**
- * 시계열 그래프 y축 범위. 선택한 지역(들)의 현재기후와 4개 시나리오 전체(+켜져 있으면 관측)를 포함해 고정합니다.
- * → 시나리오 A·B를 바꿔도 축이 흔들리지 않습니다.
- * opts = { regions, scenarios, mode, pct, extra: [관측 값들], zeroFloor }
+ * 시계열 그래프 y축 범위. 선택한 지역(들)의 현재기후와 4개 시나리오 전체(연별 값 + 공식 기간값)
+ * (+켜져 있으면 관측)를 포함해 고정합니다. → 시나리오 A·B를 바꿔도 축이 흔들리지 않습니다.
+ * 연별 값이 없는 지역(전국)도 공식 기간값으로 범위가 잡힙니다.
+ * opts = { regions, scenarios, mode, pct, periods, extra: [관측 값들], zeroFloor }
  */
 export function chartRange(el, opts) {
-  const { regions, scenarios, mode, pct = false, extra = [], zeroFloor = false } = opts;
+  const { regions, scenarios, mode, pct = false, periods = [], extra = [], zeroFloor = false } = opts;
   let lo = Infinity;
   let hi = -Infinity;
   const add = (v) => { if (isNum(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } };
@@ -227,7 +274,10 @@ export function chartRange(el, opts) {
     const base = curValue(el, r);
     seriesOf(el, 'current', r)?.values.forEach((v) => add(toMode(v, base, mode, pct)));
     add(toMode(base, base, mode, pct));
-    for (const s of scenarios) seriesOf(el, s, r)?.values.forEach((v) => add(toMode(v, base, mode, pct)));
+    for (const s of scenarios) {
+      seriesOf(el, s, r)?.values.forEach((v) => add(toMode(v, base, mode, pct)));
+      periods.forEach((p) => add(toMode(periodValue(el, s, p.id, r, periods), base, mode, pct)));
+    }
   }
   extra.forEach(add);
   if (!Number.isFinite(lo)) return null;

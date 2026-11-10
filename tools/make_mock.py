@@ -8,7 +8,9 @@
   - 실제 자료로 교체하기 전에는 학생에게 배포하지 마세요.
 
 실행 (저장소 루트에서):
-    python3 tools/make_mock.py
+    python3 tools/make_mock.py        → data-mock/ 에 씀 (data/의 실제 자료는 건드리지 않음)
+    앱에서 보기: python3 -m http.server 후 http://localhost:8000/?data=mock
+    (지도 경계는 data/geo/sido.json을 그대로 씀. data-mock/은 git·배포에서 제외)
 
 ────────────────────────────────────────────────────────────────────────────
 [값을 만드는 규칙]  직선 추세 + 작은 흔들림만 씁니다. 다른 규칙은 없습니다.
@@ -33,8 +35,13 @@
       (시작값·기울기 차이로 생김)
    ④ 기간별 차이가 줄었다가 다시 커짐: 강수량 SSP5-8.5 − SSP1-2.6 (전국)
       → SSP5-8.5에 기간 보정 전반기 +40mm, 중반기 −50mm
-   ⑤ 한 요소에서 일부 지역 값이 null: 한파일수의 세종(36) 전체
+   ⑤ 한 요소에서 일부 지역 값이 null: 한파일수의 세종(29) 전체
    ⑥ 10년 공식값이 없는 요소: 폭염일수 (→ 앱에서 2061~2080 칩이 비활성화되어야 함)
+   ⑦ 전국("00")은 official(기간값·10년 값)에만 있고 annual에는 없음
+      (기상청 시도 연자료 파일에는 전국 열이 없음. 예시에서는 전국 연별 값을 안에서만 만들어
+       공식값 계산에 쓰고, 파일의 annual에서는 뺌)
+
+지역 코드는 기상청 원자료 파일의 코드(11 서울, 21 부산, … 39 제주)를 씁니다. 행정표준코드와 다릅니다.
 
 5) 공식 기간값(official)
    - cur: 현재기후 연별 값(반올림 후)의 평균
@@ -52,7 +59,7 @@
 
 8) 전 지구 CO₂ 배출 경로: 시나리오마다 몇 개의 꺾은점을 직선으로 이은 값 (EMISSION_ANCHORS)
 
-9) 지도: 17개 시도를 대략적인 지리 배치의 정사각형 타일로 배치 (임시, 실제 경계 아님)
+9) 지도 경계는 예시가 아님: 실제 시도 경계(data/geo/sido.json)를 tools/build_geo.py로 만듦
 ────────────────────────────────────────────────────────────────────────────
 """
 
@@ -61,32 +68,33 @@ import random
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
+DATA = ROOT / "data-mock"   # 실제 자료(data/)를 덮어쓰지 않도록 따로 씀. 앱에서 보려면 index.html?data=mock
 SEED = "climate-scenario-lab-mock-v1"
 VERSION = "mock-0.1"
 
 REGIONS = [
     ("00", "전국", "전국"),
     ("11", "서울특별시", "서울"),
-    ("26", "부산광역시", "부산"),
-    ("27", "대구광역시", "대구"),
-    ("28", "인천광역시", "인천"),
-    ("29", "광주광역시", "광주"),
-    ("30", "대전광역시", "대전"),
-    ("31", "울산광역시", "울산"),
-    ("36", "세종특별자치시", "세종"),
-    ("41", "경기도", "경기"),
-    ("51", "강원특별자치도", "강원"),
-    ("43", "충청북도", "충북"),
-    ("44", "충청남도", "충남"),
-    ("52", "전북특별자치도", "전북"),
-    ("46", "전라남도", "전남"),
-    ("47", "경상북도", "경북"),
-    ("48", "경상남도", "경남"),
-    ("50", "제주특별자치도", "제주"),
+    ("21", "부산광역시", "부산"),
+    ("22", "대구광역시", "대구"),
+    ("23", "인천광역시", "인천"),
+    ("24", "광주광역시", "광주"),
+    ("25", "대전광역시", "대전"),
+    ("26", "울산광역시", "울산"),
+    ("29", "세종특별자치시", "세종"),
+    ("31", "경기도", "경기"),
+    ("32", "강원특별자치도", "강원"),
+    ("33", "충청북도", "충북"),
+    ("34", "충청남도", "충남"),
+    ("35", "전북특별자치도", "전북"),
+    ("36", "전라남도", "전남"),
+    ("37", "경상북도", "경북"),
+    ("38", "경상남도", "경남"),
+    ("39", "제주특별자치도", "제주"),
 ]
 CODES = [r[0] for r in REGIONS]
 SCENARIOS = ["ssp126", "ssp245", "ssp370", "ssp585"]
+NATION_ONLY_OFFICIAL = ["00"]  # annual에 넣지 않는 지역 (공식값만)
 CUR_YEARS = list(range(2000, 2020))
 PROJ_YEARS = list(range(2021, 2101))
 PERIODS = {"p1": (2021, 2040), "p2": (2041, 2060), "p4": (2081, 2100)}
@@ -149,7 +157,7 @@ ELEMENTS = {
                        경기=4, 강원=12, 충북=5, 충남=1, 전북=0, 전남=-3, 경북=3, 경남=-3, 제주=-5),
         gain=None, cur_slope=-0.08, wiggle=2.5,
         scen={"ssp126": (-0.5, -0.02), "ssp245": (-0.5, -0.04), "ssp370": (-0.3, -0.06), "ssp585": (0.0, -0.08)},
-        bump={}, floor0=True, decades=True, null_regions=["36"],
+        bump={}, floor0=True, decades=True, null_regions=["29"],
     ),
 }
 
@@ -167,13 +175,6 @@ EMISSION_ANCHORS = {  # (연도, GtCO₂/년) 꺾은점 — 직선으로 이음
     "ssp585": [(2015, 40), (2080, 120), (2100, 120)],
 }
 
-TILES = [  # col, row (소수 허용). 서울·인천·경기 왼쪽 위, 강원 오른쪽 위, 충청 가운데, 전라 왼쪽 아래, 경상 오른쪽 아래, 제주 맨 아래
-    ("28", 0, 0), ("11", 1, 0), ("41", 2, 0), ("51", 3, 0),
-    ("44", 0, 1), ("36", 1, 1), ("43", 2, 1), ("47", 3, 1),
-    ("52", 0, 2), ("30", 1, 2), ("27", 2, 2), ("31", 3, 2),
-    ("29", 0, 3), ("46", 1, 3), ("48", 2, 3), ("26", 3, 3),
-    ("50", 0.5, 4.35),
-]
 
 
 # 도움 함수 ------------------------------------------------------------------
@@ -312,6 +313,12 @@ def make_element(eid, cfg):
         scale["pct"] = r1(nice_ceil(max(pct), 1.0))
         scale["pctDiff"] = r1(nice_ceil(max(pdiff), 1.0))
 
+    # 전국("00")은 annual에서 뺌 (공식값에만 있음)
+    for c in NATION_ONLY_OFFICIAL:
+        current.pop(c, None)
+        for s in SCENARIOS:
+            projection[s].pop(c, None)
+
     return {
         "mock": True,
         "element": eid,
@@ -418,13 +425,16 @@ def verify(elements, stations):
          (dec["ssp126"]["2061"]["00"] + dec["ssp126"]["2071"]["00"]) / 2
     p4 = p["periods"]["ssp585"]["p4"]["00"] - p["periods"]["ssp126"]["p4"]["00"]
     check(d[0] > d[1] < p3 < p4, f"강수량 전국 SSP5-8.5 − SSP1-2.6: {d[0]:.1f} → {d[1]:.1f} → {p3:.1f} → {p4:.1f} (줄었다가 커짐)")
-    check(all(v is None for v in elements["cold"]["current"]["annual"]["36"]) and
-          elements["cold"]["official"]["cur"]["36"] is None, "한파일수 세종(36) 값 없음")
+    check(all(v is None for v in elements["cold"]["current"]["annual"]["29"]) and
+          elements["cold"]["official"]["cur"]["29"] is None, "한파일수 세종(29) 값 없음")
+    check(all("00" not in e["current"]["annual"] and all("00" not in e["projection"]["annual"][s] for s in SCENARIOS)
+              and e["official"]["cur"]["00"] is not None for e in elements.values()),
+          "전국(00)은 annual에 없고 official에만 있음")
     check("decades" not in elements["heat"]["official"], "폭염일수에는 10년 공식값 없음 (2061~2080 비활성화 확인용)")
     vals = stations["series"]["6avg"]["values"]
     check(all(vals[y - 1912] is None for y in range(1950, 1954)), "장기관측 1950~1953 null")
-    check(all(len(e["projection"]["annual"]["ssp126"]["00"]) == 80 and e["projection"]["startYear"] == 2021 and
-              len(e["current"]["annual"]["00"]) == 20 and e["current"]["startYear"] == 2000
+    check(all(len(e["projection"]["annual"]["ssp126"]["11"]) == 80 and e["projection"]["startYear"] == 2021 and
+              len(e["current"]["annual"]["11"]) == 20 and e["current"]["startYear"] == 2000
               for e in elements.values()), "현재기후 2000~2019, 전망 2021~2100 (2020년 없음)")
     return ok
 
@@ -440,10 +450,7 @@ def main():
     stations = make_stations()
     sizes["obs/stations.json"] = dump(DATA / "obs" / "stations.json", stations)
     sizes["co2/emissions.json"] = dump(DATA / "co2" / "emissions.json", make_emissions())
-    tiles = {"mock": True, "type": "tiles",
-             "note": "임시 타일 지도입니다. 실제 시도 경계가 아닙니다.",
-             "tiles": [{"code": c, "col": col, "row": row} for c, col, row in TILES]}
-    sizes["geo/sido-tiles.json"] = dump(DATA / "geo" / "sido-tiles.json", tiles, compact=False)
+    # 지도 경계(data/geo/sido.json)는 실제 자료라 여기서 만들지 않음 → tools/build_geo.py
     for k, v in sizes.items():
         print(f"  {k:24s} {v / 1024:6.1f} KB")
     for eid, e in elements.items():
