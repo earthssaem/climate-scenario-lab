@@ -57,7 +57,7 @@
 
 8) 전 지구 CO₂ 배출 경로: 시나리오마다 몇 개의 꺾은점을 직선으로 이은 값 (EMISSION_ANCHORS)
 
-9) 지도: 17개 시도를 대략적인 지리 배치의 정사각형 타일로 배치 (임시, 실제 경계 아님)
+9) 지도 경계는 예시가 아님: 실제 시도 경계(data/geo/sido.json)를 tools/build_geo.py로 만듦
 ────────────────────────────────────────────────────────────────────────────
 """
 
@@ -173,13 +173,6 @@ EMISSION_ANCHORS = {  # (연도, GtCO₂/년) 꺾은점 — 직선으로 이음
     "ssp585": [(2015, 40), (2080, 120), (2100, 120)],
 }
 
-TILES = [  # col, row (소수 허용). 서울·인천·경기 왼쪽 위, 강원 오른쪽 위, 충청 가운데, 전라 왼쪽 아래, 경상 오른쪽 아래, 제주 맨 아래
-    ("23", 0, 0), ("11", 1, 0), ("31", 2, 0), ("32", 3, 0),     # 인천 서울 경기 강원
-    ("34", 0, 1), ("29", 1, 1), ("33", 2, 1), ("37", 3, 1),     # 충남 세종 충북 경북
-    ("35", 0, 2), ("25", 1, 2), ("22", 2, 2), ("26", 3, 2),     # 전북 대전 대구 울산
-    ("24", 0, 3), ("36", 1, 3), ("38", 2, 3), ("21", 3, 3),     # 광주 전남 경남 부산
-    ("39", 0.5, 4.35),                                          # 제주
-]
 
 
 # 도움 함수 ------------------------------------------------------------------
@@ -455,10 +448,7 @@ def main():
     stations = make_stations()
     sizes["obs/stations.json"] = dump(DATA / "obs" / "stations.json", stations)
     sizes["co2/emissions.json"] = dump(DATA / "co2" / "emissions.json", make_emissions())
-    tiles = {"mock": True, "type": "tiles",
-             "note": "임시 타일 지도입니다. 실제 시도 경계가 아닙니다.",
-             "tiles": [{"code": c, "col": col, "row": row} for c, col, row in TILES]}
-    sizes["geo/sido-tiles.json"] = dump(DATA / "geo" / "sido-tiles.json", tiles, compact=False)
+    # 지도 경계(data/geo/sido.json)는 실제 자료라 여기서 만들지 않음 → tools/build_geo.py
     for k, v in sizes.items():
         print(f"  {k:24s} {v / 1024:6.1f} KB")
     for eid, e in elements.items():

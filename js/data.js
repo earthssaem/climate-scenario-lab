@@ -62,7 +62,7 @@ export function anyMock() {
 
 export const PATHS = {
   manifest: 'manifest.json',
-  geo: 'geo/sido-tiles.json',
+  geo: 'geo/sido.json',
   stations: 'obs/stations.json',
   emissions: 'co2/emissions.json',
 };
