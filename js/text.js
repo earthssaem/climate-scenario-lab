@@ -165,6 +165,18 @@ export function conditionSentence(v) {
   return parts.join(' · ');
 }
 
+/** "전국은", "서울은", "경기는" — 받침에 맞는 조사 */
+export function withEun(word) {
+  const last = String(word).trim().slice(-1);
+  const code = last.charCodeAt(0);
+  if (code >= 0xac00 && code <= 0xd7a3) return word + ((code - 0xac00) % 28 ? '은' : '는');
+  return `${word}은(는)`;
+}
+
+/** 연별 값이 없고 공식 기간값만 있는 지역 안내 (예: "전국은 기간 평균값만 제공됩니다") */
+export const periodOnlyNote = (name) => `${withEun(name)} 기간 평균값만 제공됩니다`;
+export const periodOnlyHint = '지도에서 시도를 고르면 연도별 값을 볼 수 있어요.';
+
 /** HTML에 넣을 글자 이스케이프 */
 export function esc(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

@@ -88,6 +88,16 @@ export function seriesOf(el, source, region) {
   return { startYear: block.startYear, values: arr };
 }
 
+/**
+ * 이 지역의 연별 자료(annual)가 파일에 있는지. 기상청 시도 연자료에는 전국 열이 없어서
+ * 전국("00")은 공식 기간값만 있고 annual에는 없을 수 있습니다. (시도 값을 평균해 만들지 않습니다)
+ */
+export function hasAnnual(el, region) {
+  if (!el) return false;
+  if (Array.isArray(el.current?.annual?.[region])) return true;
+  return Object.values(el.projection?.annual ?? {}).some((sc) => Array.isArray(sc?.[region]));
+}
+
 /** 자료 블록이 덮는 연도 범위 [첫해, 끝해] — 전국(00) 또는 첫 지역 배열 길이로 판단 */
 export function blockRange(el, which) {
   const block = which === 'current' ? el?.current : el?.projection;
@@ -214,12 +224,13 @@ export function niceStep(span, target = 6) {
 }
 
 /**
- * 시계열 그래프 y축 범위. 선택한 지역(들)의 현재기후와 4개 시나리오 전체(+켜져 있으면 관측)를 포함해 고정합니다.
- * → 시나리오 A·B를 바꿔도 축이 흔들리지 않습니다.
- * opts = { regions, scenarios, mode, pct, extra: [관측 값들], zeroFloor }
+ * 시계열 그래프 y축 범위. 선택한 지역(들)의 현재기후와 4개 시나리오 전체(연별 값 + 공식 기간값)
+ * (+켜져 있으면 관측)를 포함해 고정합니다. → 시나리오 A·B를 바꿔도 축이 흔들리지 않습니다.
+ * 연별 값이 없는 지역(전국)도 공식 기간값으로 범위가 잡힙니다.
+ * opts = { regions, scenarios, mode, pct, periods, extra: [관측 값들], zeroFloor }
  */
 export function chartRange(el, opts) {
-  const { regions, scenarios, mode, pct = false, extra = [], zeroFloor = false } = opts;
+  const { regions, scenarios, mode, pct = false, periods = [], extra = [], zeroFloor = false } = opts;
   let lo = Infinity;
   let hi = -Infinity;
   const add = (v) => { if (isNum(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } };
@@ -227,7 +238,10 @@ export function chartRange(el, opts) {
     const base = curValue(el, r);
     seriesOf(el, 'current', r)?.values.forEach((v) => add(toMode(v, base, mode, pct)));
     add(toMode(base, base, mode, pct));
-    for (const s of scenarios) seriesOf(el, s, r)?.values.forEach((v) => add(toMode(v, base, mode, pct)));
+    for (const s of scenarios) {
+      seriesOf(el, s, r)?.values.forEach((v) => add(toMode(v, base, mode, pct)));
+      periods.forEach((p) => add(toMode(periodValue(el, s, p.id, r, periods), base, mode, pct)));
+    }
   }
   extra.forEach(add);
   if (!Number.isFinite(lo)) return null;

@@ -164,7 +164,12 @@ export function renderMap(root, v) {
   const badges = s.regionB ? { [s.regionA]: 'A', [s.regionB]: 'B' } : null;
   const selLine = (vals) => {
     const show = [s.regionA, ...(s.regionB ? [s.regionB] : [])];
-    return show.map((c) => `<span class="sel">${esc(name(c))} <b>${D.isNum(vals[c]) ? esc(fmt(vals[c]) + unit) : T.noData}</b></span>`).join('');
+    const txt = (c) => {
+      if (D.isNum(vals[c])) return esc(fmt(vals[c]) + unit);
+      // 연별 값이 없는 지역(전국)은 연도 보기에서 값이 없음
+      return s.year != null && !D.hasAnnual(el, c) ? '연도별 값 없음' : T.noData;
+    };
+    return show.map((c) => `<span class="sel">${esc(name(c))} <b>${txt(c)}</b></span>`).join('');
   };
 
   // 그릴 지도 목록

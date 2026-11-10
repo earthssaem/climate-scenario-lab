@@ -2,7 +2,7 @@
 // 관측·현재기후·전망은 모두 별도 데이터셋이고 서로 잇지 않습니다. 빈 값(null)은 선을 끊습니다(spanGaps:false).
 import * as D from './data.js';
 import { DEFAULT_X_MIN } from './state.js';
-import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, modeName, withUnit } from './text.js';
+import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, modeName, withUnit, periodOnlyNote, periodOnlyHint } from './text.js';
 
 let chart = null;
 let actionsRef = null;
@@ -49,7 +49,10 @@ function build(v) {
     });
   }
   let idxA = -1;
+  // 연별 값이 없는 지역(전국 등)은 선 없이 공식 20년 평균 막대만 그림. 시도 값을 평균해 만들지 않음
+  const periodOnly = regions.filter((r) => !D.hasAnnual(el, r));
   regions.forEach((r) => {
+    if (periodOnly.includes(r)) return;
     const base = D.curValue(el, r);
     datasets.push({
       key: `cur-${r}`, data: points(D.seriesOf(el, 'current', r), base, s.mode, v.pct),
@@ -65,7 +68,7 @@ function build(v) {
     if (scenB) {
       const b = { key: `B-${r}`, data: points(D.seriesOf(el, s.scenB, r), base, s.mode, v.pct), borderColor: scenB.color, borderWidth: 2.5, borderDash: dash(r), pointRadius: 0, order: 10 };
       // A·B 사이를 옅게 채움 (지역 비교 중에는 선이 많아 생략)
-      if (!compare && r === s.regionA) b.fill = { target: idxA, above: FILL_AB, below: FILL_AB };
+      if (!compare && r === s.regionA && idxA > -1) b.fill = { target: idxA, above: FILL_AB, below: FILL_AB };
       datasets.push(b);
     }
   });
@@ -90,18 +93,21 @@ function build(v) {
   let derivedShown = false;
   periods.filter((p) => p.id !== 'cur').forEach((p) => {
     regions.forEach((r) => {
-      barScens.forEach((m) => {
+      // 4개 모두: 연별 선이 없는 지역은 나머지 시나리오를 가는 20년 평균 막대로 추가
+      const scens = periodOnly.includes(r) ? [...barScens, ...others] : barScens;
+      scens.forEach((m) => {
         const y = D.toMode(D.periodValue(el, m.id, p.id, r, periods), D.curValue(el, r), s.mode, v.pct);
         if (!D.isNum(y)) return;
         if (p.derived) derivedShown = true;
+        const thin = others.includes(m);
         // 흰 테두리를 먼저 깔아 같은 색 선 위에서도 막대가 보이게
         ann[`halo-${p.id}-${r}-${m.id}`] = {
           type: 'line', xMin: p.start - 0.3, xMax: p.end + 0.3, yMin: y, yMax: y,
-          borderColor: 'rgba(255,255,255,0.95)', borderWidth: 9, borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
+          borderColor: 'rgba(255,255,255,0.95)', borderWidth: thin ? 6 : 9, borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
         };
         ann[`bar-${p.id}-${r}-${m.id}`] = {
           type: 'line', xMin: p.start, xMax: p.end, yMin: y, yMax: y,
-          borderColor: p.derived ? alpha(m.color, 0.5) : m.color, borderWidth: 5, borderDash: dash(r),
+          borderColor: p.derived ? alpha(m.color, 0.5) : m.color, borderWidth: thin ? 2.5 : 5, borderDash: dash(r),
           borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
         };
       });
@@ -112,11 +118,11 @@ function build(v) {
   // y축: 요소·모드·지역 기준, 4개 시나리오 전체 포함 → A·B를 바꿔도 고정
   const extra = obsSeries ? obsSeries.values : [];
   const range = D.chartRange(el, {
-    regions, scenarios: manifest.scenarios.map((m) => m.id), mode: s.mode, pct: v.pct, extra,
+    regions, scenarios: manifest.scenarios.map((m) => m.id), mode: s.mode, pct: v.pct, periods, extra,
     zeroFloor: s.mode === 'abs' && v.elMeta.kind === 'days',
   }) ?? { min: 0, max: 1, step: 1 };
 
-  return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown };
+  return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown, periodOnly };
 }
 
 /* ───────────── 범례·안내 ───────────── */
@@ -132,14 +138,23 @@ function legendHTML(v, b) {
   const nm = (c) => v.regionMeta(c)?.short ?? c;
   const items = [];
   if (b.obsSeries) items.push([sample({ color: C_OBS, width: 1, dot: true }), `관측 · ${esc(b.obsSeries.name)} (지점값)`]);
-  const where = b.compare ? `${nm(s.regionA)}·${nm(s.regionB)}` : nm(s.regionA);
+  const lineRegions = b.regions.filter((r) => !b.periodOnly.includes(r));
+  const where = lineRegions.map(nm).join('·');
   const yrs = D.blockRange(v.el, 'current');
-  items.push([sample({ color: C_CUR, width: 2 }), `현재기후 · ${esc(where)} 평균${yrs ? ` (${yrs[0]}~${yrs[1]})` : ''}`]);
+  if (lineRegions.length) items.push([sample({ color: C_CUR, width: 2 }), `현재기후 · ${esc(where)} 평균${yrs ? ` (${yrs[0]}~${yrs[1]})` : ''}`]);
   items.push([sample({ band: true }), '현재기후 평균']);
-  items.push([sample({ color: b.scenA.color }), `${esc(b.scenA.label)} 전망 · ${esc(where)} 평균`]);
-  if (b.scenB) items.push([sample({ color: b.scenB.color }), `${esc(b.scenB.label)} 전망 · ${esc(where)} 평균`]);
-  b.others.forEach((m) => items.push([sample({ color: m.color, width: 1.2 }), `${esc(m.label)} 전망`]));
-  items.push([sample({ color: '#5b6475', bar: true }), `20년 평균${b.derivedShown ? ' (2061~2080은 앱 계산, 옅게)' : ''}`]);
+  const scens = [b.scenA, ...(b.scenB ? [b.scenB] : [])];
+  if (lineRegions.length) {
+    scens.forEach((m) => items.push([sample({ color: m.color }), `${esc(m.label)} 전망 · ${esc(where)} 평균`]));
+    b.others.forEach((m) => items.push([sample({ color: m.color, width: 1.2 }), `${esc(m.label)} 전망`]));
+    items.push([sample({ color: '#5b6475', bar: true }), `20년 평균${b.derivedShown ? ' (2061~2080은 앱 계산, 옅게)' : ''}`]);
+  } else {
+    // 연별 선이 없으면 막대 색으로 시나리오를 구분
+    const po = b.periodOnly.map(nm).join('·');
+    scens.forEach((m) => items.push([sample({ color: m.color, bar: true }), `${esc(m.label)} 20년 평균 · ${esc(po)}`]));
+    b.others.forEach((m) => items.push([sample({ color: m.color, width: 2.5 }), `${esc(m.label)} 20년 평균`]));
+    if (b.derivedShown) items.push(['', '(2061~2080은 앱 계산, 옅게)']);
+  }
   if (b.compare) items.push([`${sample({ color: '#1c2330', width: 2 })}${sample({ color: '#1c2330', width: 2, dash: '7 5' })}`, `실선 ${esc(nm(s.regionA))} · 점선 ${esc(nm(s.regionB))}`]);
   return items.map(([sw, label]) => `<span class="li">${sw}${label}</span>`).join('');
 }
@@ -175,6 +190,10 @@ function yearCardHTML(v, b) {
     b.regions.forEach((r) => {
       const base = D.curValue(el, r);
       if (b.compare) body += `<div class="grp">${esc(nm(r))}</div>`;
+      if (b.periodOnly.includes(r)) {
+        body += `<p class="msg">${esc(periodOnlyNote(nm(r)))}</p>`;
+        return;
+      }
       if (src === 'current') {
         body += row(`<span class="sdot" style="--c:${C_CUR}"></span>`, '현재기후', fmtV(D.toMode(D.regionYearValue(el, s.scenA, r, y), base, s.mode, v.pct)));
         return;
@@ -220,6 +239,7 @@ function skeleton(root) {
   root.innerHTML = `
     <div class="card-head"><h2>시계열 그래프</h2><div class="obs-ctl"></div></div>
     <div class="ts-legend"></div>
+    <p class="po-note" role="status" hidden></p>
     <div class="chart-wrap"><canvas role="img" aria-label="연도별 값 그래프"></canvas><div class="year-card" hidden></div></div>
     <div class="chart-notes"></div>`;
   root.dataset.built = '1';
@@ -310,6 +330,15 @@ export function renderChart(root, v, actions) {
   }
 
   // 안내 문구
+  const po = root.querySelector('.po-note');
+  if (b.periodOnly.length) {
+    po.hidden = false;
+    po.innerHTML = `<b>${esc(b.periodOnly.map((r) => periodOnlyNote(v.regionMeta(r)?.short ?? r)).join(' / '))}</b> <span>${periodOnlyHint}</span>`;
+  } else {
+    po.hidden = true;
+    po.innerHTML = '';
+  }
+
   const notes = [];
   if (b.obsSeries) notes.push(`<p class="obs">${T.obsNote}</p>`);
   notes.push(`<p>${T.ensembleNote}</p>`);
