@@ -200,5 +200,6 @@ store.subscribe((s, prev) => {
 });
 D.onDataChange(scheduleRender);
 bindEvents();
+window.addEventListener('resize', scheduleRender);
 mountMap($('mapCard'), scheduleRender);
 boot();
