@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 node_modules/
 .vercel
+# 예시 데이터 생성기 출력 (tools/make_mock.py) — 저장소·배포에 넣지 않음
+data-mock/
+.geoenv/

@@ -8,7 +8,9 @@
   - 실제 자료로 교체하기 전에는 학생에게 배포하지 마세요.
 
 실행 (저장소 루트에서):
-    python3 tools/make_mock.py
+    python3 tools/make_mock.py        → data-mock/ 에 씀 (data/의 실제 자료는 건드리지 않음)
+    앱에서 보기: python3 -m http.server 후 http://localhost:8000/?data=mock
+    (지도 경계는 data/geo/sido.json을 그대로 씀. data-mock/은 git·배포에서 제외)
 
 ────────────────────────────────────────────────────────────────────────────
 [값을 만드는 규칙]  직선 추세 + 작은 흔들림만 씁니다. 다른 규칙은 없습니다.
@@ -66,7 +68,7 @@ import random
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "data"
+DATA = ROOT / "data-mock"   # 실제 자료(data/)를 덮어쓰지 않도록 따로 씀. 앱에서 보려면 index.html?data=mock
 SEED = "climate-scenario-lab-mock-v1"
 VERSION = "mock-0.1"
 

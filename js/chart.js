@@ -113,6 +113,17 @@ function build(v) {
       });
     });
   });
+  // 회색 관측선 이름표를 선 바로 옆(앞쪽 20여 년 위)에 — 지역(예: 서울) 자료로 오해하지 않게 지점 자료임을 분명히
+  if (obsSeries) {
+    const head = obsSeries.values.slice(0, 25).filter(D.isNum);
+    if (head.length) {
+      ann.obsLabel = {
+        type: 'label', xValue: obsSeries.startYear + 1, yValue: Math.max(...head), position: { x: 'start', y: 'end' },
+        yAdjust: -6, content: [obsLabelText(obsSeries)], color: '#4b5262', font: { size: 14, weight: '700' },
+        backgroundColor: 'rgba(255, 255, 255, 0.88)', borderRadius: 6, padding: { x: 6, y: 3 }, drawTime: 'afterDatasetsDraw',
+      };
+    }
+  }
   if (s.year != null) ann.cursor = { type: 'line', xMin: s.year, xMax: s.year, borderColor: '#1c2330', borderWidth: 1.5, borderDash: [4, 4], drawTime: 'afterDatasetsDraw' };
 
   // y축: 요소·모드·지역 기준, 4개 시나리오 전체 포함 → A·B를 바꿔도 고정
@@ -123,6 +134,11 @@ function build(v) {
   }) ?? { min: 0, max: 1, step: 1 };
 
   return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown, periodOnly };
+}
+
+/** 관측 자료 이름표: "관측 · 6개 지점 평균(지점값)" */
+export function obsLabelText(series) {
+  return `관측 · ${series.name}(지점값)`;
 }
 
 /* ───────────── 도구 줄·범례·안내 ───────────── */
@@ -198,7 +214,7 @@ function yearStripHTML(v, b) {
   }
   if (b.obsSeries) {
     const o = D.obsYearValue(b.obsSeries, y);
-    body += item('<span class="obs-dot"></span>', `관측 · ${esc(b.obsSeries.name)}`, D.isNum(o) ? withUnit(fmtSigned(o), '℃') : '자료 없음');
+    body += item('<span class="obs-dot"></span>', esc(obsLabelText(b.obsSeries)), D.isNum(o) ? withUnit(fmtSigned(o), '℃') : '자료 없음');
   }
   return `<div class="ys-row"><b class="yr">${y}년</b>${kind ? `<span class="kind">${kind}</span>` : ''}${body}
       <button class="x" data-action="clear-year" data-key="ys-close" aria-label="연도 보기 끝내기">✕</button></div>
@@ -220,20 +236,31 @@ function placePeriodBand(root) {
     const x1 = Math.min(sx.right, sx.getPixelForValue(p.end + 0.5));
     return { p, x0, w: x1 - x0 };
   });
-  // x축 위치에 맞춘 칸이 누르기에 너무 좁으면(44px 미만) 그래프 폭에 같은 너비로 나란히 (선택 구간은 그래프 음영으로 보임)
+  // x축 위치에 맞춘 칸이 누르기에 너무 좁으면(44px 미만) 그래프 폭에 같은 너비로 나란히 놓고,
+  // 위치가 맞지 않는 대신 칸마다 연도 범위를 함께 적음 (선택 구간은 그래프 음영으로도 보임)
   const aligned = cells.every((c) => c.w >= 44);
   band.classList.toggle('compact', !aligned);
-  const eqW = (sx.right - sx.left) / cells.length;
-  band.innerHTML = cells.map(({ p, x0, w }, i) => {
+  const btn = (p, extra, inner) => {
     const off = p.derived && !lastView.derivedOk(p);
-    const left = aligned ? x0 : sx.left + i * eqW;
-    const width = aligned ? w : eqW;
+    const full = p.derived ? `${p.label}*` : p.label;
+    return `<button class="pb" data-action="period" data-id="${esc(p.id)}" data-key="pb-${esc(p.id)}" ${off ? 'disabled' : ''}
+      aria-pressed="${s.year == null && p.id === s.period}" ${extra} aria-label="${esc(full)} ${p.start}~${p.end}년">${inner}</button>`;
+  };
+  if (!aligned) {
+    const bandW = band.getBoundingClientRect().width;
+    band.style.paddingLeft = `${Math.max(0, offset + sx.left)}px`;
+    band.style.paddingRight = `${Math.max(0, bandW - (offset + sx.right))}px`;
+    band.innerHTML = cells.map(({ p }) => btn(p, '',
+      `<span class="pn">${esc(p.derived ? `${T.appCalc}*` : p.label)}</span><span class="yrs">${p.start}~<wbr>${p.end}</span>`)).join('');
+    return;
+  }
+  band.style.paddingLeft = '';
+  band.style.paddingRight = '';
+  band.innerHTML = cells.map(({ p, x0, w }) => {
     const full = p.derived ? `${p.label}*` : p.label;
     const short = p.derived ? `${p.start % 100}~${p.end % 100}*` : p.label;
-    const text = width >= full.length * 9 + 10 ? full : short;
-    return `<button class="pb" data-action="period" data-id="${esc(p.id)}" data-key="pb-${esc(p.id)}" ${off ? 'disabled' : ''}
-      aria-pressed="${s.year == null && p.id === s.period}" style="left:${offset + left + 1}px;width:${width - 2}px"
-      aria-label="${esc(full)} ${p.start}~${p.end}년">${esc(text)}</button>`;
+    const text = w >= full.length * 9 + 10 ? full : short;
+    return btn(p, `style="left:${offset + x0 + 1}px;width:${w - 2}px"`, esc(text));
   }).join('');
 }
 

@@ -1,7 +1,7 @@
 // ui-controls.js — 상단 바, 조건 토큰 줄, 선택 창들(지역·요소·시나리오·기간·표시 방식), ⓘ 창
 // 화면은 상태(view.s)로만 그립니다. 버튼은 data-action 속성만 달고, 실제 처리는 main.js 한 곳에서 합니다.
 import {
-  T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, modeName, derivedNote, periodOnlyNote, periodOnlyHint,
+  T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, modeName, derivedNote, derivedShort, periodOnlyNote, periodOnlyHint,
 } from './text.js';
 import * as D from './data.js';
 
@@ -201,7 +201,7 @@ function periodChooser(v) {
         ${pressed(s.year == null && p.id === s.period)} ${off ? 'disabled' : ''}>
         <b>${esc(p.derived ? `${p.label}*` : p.label)}</b><span class="d">${p.start}~${p.end}년${p.derived ? ` · ${T.appCalc}` : ''}${off ? ' · 이 요소는 10년 값이 없어 쓸 수 없어요' : ''}</span></button>`;
     }).join('')}</div>
-    ${derived ? `<p class="help">${esc(D.derivedMethod(v.el, derived) ? `* ${D.derivedMethod(v.el, derived)} (앱 계산)` : derivedNote(derived))}</p>` : ''}
+    ${derived ? `<p class="help">${esc(derivedShort(derived, D.derivedMethod(v.el, derived)))}</p>` : ''}
     <p class="help">그래프 아래 기간 띠를 눌러도 바뀌어요. 그래프를 누르면 한 해의 값을 볼 수 있어요.</p>`, 'chooser');
 }
 
@@ -219,8 +219,11 @@ function modeChooser(v) {
 
 function graphInfoHTML(v) {
   const rows = GRAPH_INFO.map(([k, d]) => `<p><b>${k}</b> ${d}</p>`).join('');
+  const dMeta = v.manifest.periods.find((p) => p.derived);
+  const method = dMeta && v.el ? D.derivedMethod(v.el, dMeta) : null;
+  const methodRow = dMeta ? `<p><b>${dMeta.start}~${dMeta.end} 계산 방법</b> ${esc(method ?? derivedNote(dMeta).replace(/^\* /, ''))} (앱 계산)</p>` : '';
   const periodOnly = v.manifest.regions.filter((r) => [v.s.regionA, v.s.regionB].includes(r.code) && v.el && !D.hasAnnual(v.el, r.code));
-  return dialogShell('그래프 읽는 법', `${rows}
+  return dialogShell('그래프 읽는 법', `${rows}${methodRow}
     ${periodOnly.length ? `<p class="think">${periodOnly.map((r) => esc(periodOnlyNote(r.short))).join(' / ')}. ${periodOnlyHint}</p>` : ''}
     <p class="help">${T.obsNote}</p>
     <p class="help">${T.ensembleNote}</p>

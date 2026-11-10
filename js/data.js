@@ -5,7 +5,10 @@
 
 /* ───────────── 불러오기·캐시 ───────────── */
 
-const BASE = 'data/';
+// 자료 폴더: 기본은 data/. 개발 중 예시 데이터를 볼 때만 ?data=mock → data-mock/ (지도 경계는 항상 data/geo)
+const MOCK_PARAM = typeof location !== 'undefined' && new URLSearchParams(location.search).get('data') === 'mock';
+const BASE = MOCK_PARAM ? 'data-mock/' : 'data/';
+const urlBase = (path) => (path.startsWith('geo/') ? 'data/' : BASE);
 const requests = new Map(); // path → Promise (진행 중이거나 끝난 요청을 재사용)
 const loaded = new Map();   // path → 성공한 데이터
 const failed = new Map();   // path → Error
@@ -24,7 +27,7 @@ const emit = () => listeners.forEach((fn) => fn());
  */
 export function loadJSON(path, { revalidate = false } = {}) {
   if (requests.has(path)) return requests.get(path);
-  const url = BASE + path + (version && !revalidate ? `?v=${encodeURIComponent(version)}` : '');
+  const url = urlBase(path) + path + (version && !revalidate ? `?v=${encodeURIComponent(version)}` : '');
   failed.delete(path);
   const p = Promise.resolve()
     .then(() => fetchImpl(url, revalidate ? { cache: 'no-cache' } : undefined))

@@ -8,7 +8,7 @@ export const DEFAULT_STATE = Object.freeze({
   showAll4: false,       // 그래프에 4개 시나리오 모두 표시
   mode: 'chg',           // 'abs' 절댓값 | 'chg' 현재 대비 변화량
   prcpUnit: 'mm',        // 강수량 변화량 단위: 'mm' | 'pct'
-  regionA: '00',         // 전국
+  regionA: '11',         // 서울 (첫 화면에서 연도별 선이 보이게. 전국은 기간값만 있음)
   regionB: null,         // 비교 지역
   pickingRegionB: false, // "+ 비교 지역"을 누른 뒤 다음 지도 탭을 기다리는 중
   period: 'p4',          // 후반기(2081~2100)

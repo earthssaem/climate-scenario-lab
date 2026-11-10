@@ -135,7 +135,7 @@ await test('상태: A·B 같은 시나리오 금지, 지역 비교 중 4개 모�
   assert.equal(st.get().scenB, 'ssp585');
   st.actions.setAll4(true);
   st.actions.startPickB();
-  st.actions.tapRegion('00');                            // regionA와 같으면 계속 기다림
+  st.actions.tapRegion(st.get().regionA);                 // regionA와 같으면 계속 기다림
   assert.equal(st.get().pickingRegionB, true);
   st.actions.tapRegion('21');                            // 부산 (기상청 원자료 코드)
   assert.equal(st.get().regionB, '21');

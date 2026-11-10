@@ -1,7 +1,7 @@
 // numbers.js — 수치 비교 표 + 기간별 차이 막대그래프(B−A)
 // 데이터에 나타난 값을 그대로 보여 줍니다. 증가·감소 같은 결론 문구를 자동으로 붙이지 않습니다.
 import * as D from './data.js';
-import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedChipNote } from './text.js';
+import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedShort } from './text.js';
 
 function cellButton(pid, enabled, big, small, label) {
   return `<button class="cell" data-action="period" data-id="${esc(pid)}" ${enabled ? '' : 'disabled'}
@@ -236,7 +236,7 @@ export function renderDetails(root, v) {
   root.innerHTML = `
     <div class="card-head"><h2>${T.details}</h2><span class="note">칸을 누르면 그 기간으로 바뀌어요</span></div>
     ${tableHTML(v)}
-    <p class="note" style="margin-top:6px">${T.curColumnNote}${derived ? ` ${D.derivedMethod(v.el, derived) ? `* ${esc(D.derivedMethod(v.el, derived))} (앱 계산)` : derivedChipNote}` : ''}</p>
+    <p class="note" style="margin-top:6px">${T.curColumnNote}${derived ? ` ${esc(derivedShort(derived, D.derivedMethod(v.el, derived)))}` : ''}</p>
     ${barsHTML(v, root.clientWidth - 40)}
     <details class="aux"><summary>${T.auxTitle}</summary><p class="placeholder">${T.auxBody}</p></details>`;
 }
