@@ -2,11 +2,11 @@
 // 모든 화면 영역은 같은 상태(store)로 한꺼번에 다시 그립니다. 각 영역은 상태를 따로 들고 있지 않습니다.
 import { createStore, obsAllowed, obsEffective } from './state.js';
 import * as D from './data.js';
-import { T, conditionSentence } from './text.js';
-import { renderControls, renderDialogs } from './ui-controls.js';
-import { mountMap, renderMap } from './map.js';
+import { T } from './text.js';
+import { renderTopControls, renderTokens, renderDialogs } from './ui-controls.js';
+import { mountMap, renderMap, popupPosition } from './map.js';
 import { renderChart } from './chart.js';
-import { renderNumbers } from './numbers.js';
+import { renderKeybar, renderDetails } from './numbers.js';
 
 const $ = (id) => document.getElementById(id);
 const store = createStore();
@@ -63,6 +63,8 @@ function buildView() {
   v.stStatus = D.statusOf(D.PATHS.stations);
   v.emissions = D.getLoaded(D.PATHS.emissions);
   v.emStatus = D.statusOf(D.PATHS.emissions);
+  // 예시 데이터: 값 파일만 따짐 (지도 경계는 실제 자료라 띠를 띄우지 않음)
+  v.mock = manifest.mock === true || D.anyMock([D.PATHS.geo]);
   return v;
 }
 
@@ -77,51 +79,64 @@ function scheduleRender() {
 function render() {
   const focusKey = document.activeElement?.dataset?.key;
   const v = buildView();
-
-  const banner = $('mockBanner');
-  const mock = (manifest && manifest.mock === true) || D.anyMock();
-  banner.hidden = !mock;
-  document.documentElement.style.setProperty('--banner-h', mock ? `${banner.offsetHeight}px` : '0px');
-
+  const mock = !!v.mock;
+  $('mockBanner').hidden = !mock;
+  document.body.classList.toggle('is-mock', mock);
+  document.documentElement.style.setProperty('--banner-h', mock ? `${$('mockBanner').offsetHeight}px` : '0px');
   if (!manifest) return;
-  renderControls($('controls'), v);
-  $('barToggle').setAttribute('aria-expanded', String(!v.s.ui.barCollapsed));
-  $('barToggle').textContent = v.s.ui.barCollapsed ? '조건 펼치기 ▾' : '조건 접기 ▴';
-  $('sentence').textContent = conditionSentence(v);
+
+  renderTopControls($('topControls'), v);
+  renderTokens($('tokens'), v);
   renderMap($('mapCard'), v);
   renderChart($('chartCard'), v, A);
-  renderNumbers($('numbersCard'), v);
+  renderKeybar($('keybar'), v);
+  renderDetails($('details'), v);
   const dlg = renderDialogs($('dialogRoot'), v);
 
   // 다시 그린 뒤 키보드 초점 되살리기 / 창이 열리면 창 안으로
   if (dlg.opened) $('dialogRoot').querySelector('[data-key="dlg-close"]')?.focus();
-  else if (dlg.closed && lastOpener) document.querySelector(`[data-key="${lastOpener}"]`)?.focus();
+  else if (dlg.closed && lastOpener) document.querySelector(`[data-key="${lastOpener}"]`)?.focus({ preventScroll: true });
   else if (focusKey) document.querySelector(`[data-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: true });
 }
 
 /* ───────────── 사용자 조작 → 상태 변경 ───────────── */
 
 let lastOpener = '';
-function handle(action, ds, el) {
+let popTimer = 0;
+function showPopupFor(el, evt) {
+  const pos = popupPosition(el, evt);
+  if (!pos) return;
+  clearTimeout(popTimer);
+  A.showPopup({ code: el.dataset.code, fig: el.dataset.fig, x: Math.round(pos.x), y: Math.round(pos.y) });
+  popTimer = setTimeout(() => A.hidePopup(), 2600);
+}
+
+function handle(action, ds, el, evt) {
   switch (action) {
     case 'element': return A.setElement(ds.id);
     case 'info': lastOpener = 'info'; return A.openInfo();
-    case 'picker': lastOpener = `picker-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
+    case 'graph-info': lastOpener = 'graph-info'; return A.openGraphInfo();
+    case 'chooser': lastOpener = `tk-${ds.kind}`; return A.openChooser(ds.kind);
+    case 'picker': lastOpener = el?.dataset.key || `tk-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
     case 'pick-scen': return A.setScenario(ds.slot, ds.id || null);
+    case 'choose-region': return ds.slot === 'A' ? A.chooseRegionA(ds.id) : A.chooseRegionB(ds.id || null);
     case 'close-dialog': return A.closeDialogs();
     case 'retry-emissions': return ensureEmissions();
     case 'mode': return A.setMode(ds.id);
     case 'prcp-unit': return A.setPrcpUnit(ds.id);
-    case 'tile': return A.tapRegion(ds.code);
+    case 'mode-opt': A.setPrcpUnit(ds.unit); return A.setMode(ds.mode);
+    case 'tile':
+      A.tapRegion(ds.code);
+      return showPopupFor(el, evt);
     case 'nation': return A.selectNation();
     case 'pick-b': return A.startPickB();
     case 'cancel-pick': return A.cancelPickB();
     case 'clear-b': return A.clearRegionB();
     case 'period': return A.setPeriod(ds.id);
-    case 'clear-year': return A.setYear(null);
+    case 'clear-year': A.closeDialogs(); return A.setYear(null);
     case 'map-view': return A.setMapView(ds.view);
     case 'map-tab': return A.setMapTab(ds.tab);
-    case 'toggle-bar': return A.toggleBar();
+    case 'toggle-details': return A.toggleDetails();
     case 'retry-element': return ensureElement(store.get().element);
     case 'retry-base':
       quiet(D.loadJSON(D.PATHS.geo));
@@ -148,24 +163,27 @@ function bindEvents() {
     const t = e.target.closest('[data-action]');
     if (!t || t.disabled || t.getAttribute('aria-disabled') === 'true') return;
     if (t.tagName === 'A') e.preventDefault();
-    handle(t.dataset.action, t.dataset, t);
+    handle(t.dataset.action, t.dataset, t, e);
   });
   document.addEventListener('change', (e) => { if (e.target.dataset?.change) onChange(e); });
-  // SVG 타일처럼 <button>이 아닌 누름 대상: Enter / Space
+  // SVG 지역처럼 <button>이 아닌 누름 대상: Enter / Space
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && (store.get().ui.picker || store.get().ui.info)) { A.closeDialogs(); return; }
+    const ui = store.get().ui;
+    if (e.key === 'Escape' && (ui.picker || ui.info || ui.chooser || ui.graphInfo)) { A.closeDialogs(); return; }
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const t = e.target.closest?.('[data-action][role="button"]');
     if (!t || t.tagName === 'BUTTON' || t.getAttribute('aria-disabled') === 'true') return;
     e.preventDefault();
-    handle(t.dataset.action, t.dataset, t);
+    handle(t.dataset.action, t.dataset, t, null);
   });
   // 제목(로고·앱 이름)을 누르면 기본 상태로 — 학생이 저장한 것은 없으므로 상태만 처음으로
   $('homeLink').addEventListener('click', (e) => {
     e.preventDefault();
+    clearTimeout(popTimer);
     A.reset();
     window.scrollTo(0, 0);
   });
+  window.addEventListener('resize', scheduleRender);
 }
 
 /* ───────────── 시작 ───────────── */
@@ -187,7 +205,7 @@ async function boot() {
   }
   D.setVersion(manifest.version);
   store.setManifest(manifest);
-  // 첫 접속에 꼭 필요한 것만: 지도 모양, 기본 요소(평균기온), 장기관측
+  // 첫 접속에 꼭 필요한 것만: 지도 경계, 기본 요소(평균기온), 장기관측
   quiet(D.loadJSON(D.PATHS.geo));
   ensureElement(store.get().element);
   quiet(D.loadJSON(D.PATHS.stations));
@@ -200,6 +218,5 @@ store.subscribe((s, prev) => {
 });
 D.onDataChange(scheduleRender);
 bindEvents();
-window.addEventListener('resize', scheduleRender);
 mountMap($('mapCard'), scheduleRender);
 boot();

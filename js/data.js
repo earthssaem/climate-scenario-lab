@@ -54,9 +54,9 @@ export function statusOf(path) {
 export const getLoaded = (path) => loaded.get(path) ?? null;
 export const loadedPaths = () => [...loaded.keys()];
 
-/** 불러온 파일 중 하나라도 mock이면 true */
-export function anyMock() {
-  for (const d of loaded.values()) if (d && d.mock === true) return true;
+/** 불러온 파일 중 하나라도 mock이면 true (exclude: 따지지 않을 경로 — 예: 지도 경계) */
+export function anyMock(exclude = []) {
+  for (const [path, d] of loaded) if (!exclude.includes(path) && d && d.mock === true) return true;
   return false;
 }
 
@@ -154,25 +154,58 @@ export function decadeStarts(meta) {
   return out;
 }
 
-/** 파생 기간을 계산할 10년 공식값이 (어느 시나리오에든) 있는지 — 없으면 칩을 비활성화 */
+/**
+ * 10년 공식값 하나. 두 가지 배치를 모두 받습니다.
+ *   decades[시나리오][구간 시작 연도][지역]   (형식 설명 5-3)
+ *   decades[시나리오][지역][구간 시작 연도]   (기상청 자료 가공 스크립트 출력)
+ */
+export function decadeValue(el, scen, start, region) {
+  const dec = el?.official?.decades?.[scen];
+  if (!dec) return null;
+  const v = dec[String(start)]?.[region] ?? dec[region]?.[String(start)];
+  return isNum(v) ? v : null;
+}
+
+/** 전처리에서 미리 계산해 official.periods에 넣은 파생 기간 값 (있으면 이것을 씀) */
+function precomputed(el, scen, pid, region) {
+  const v = el?.official?.periods?.[scen]?.[pid]?.[region];
+  return isNum(v) ? v : null;
+}
+
+/** 파생 기간 값을 보여 줄 수 있는지 (미리 계산된 값 또는 10년 공식값이 어느 시나리오·지역에든 있으면) — 없으면 칩 비활성 */
 export function derivedAvailable(el, meta) {
+  const per = el?.official?.periods;
+  if (per && Object.values(per).some((sc) => sc?.[meta.id] && Object.values(sc[meta.id]).some(isNum))) return true;
   const dec = el?.official?.decades;
   if (!dec) return false;
   const starts = decadeStarts(meta);
-  return Object.values(dec).some((sc) => sc && starts.every((y) => sc[String(y)] && typeof sc[String(y)] === 'object'));
+  return Object.entries(dec).some(([scen, sc]) => {
+    const regions = new Set([...Object.keys(sc ?? {}), ...Object.values(sc ?? {}).flatMap((x) => (x && typeof x === 'object' ? Object.keys(x) : []))]);
+    return [...regions].some((r) => starts.every((y) => decadeValue(el, scen, y, r) != null));
+  });
 }
 
-/** 공식 10년 값들의 평균 (앱 계산). 구간 안의 10년 값이 하나라도 없으면 null */
+/**
+ * 파생 기간(공식 20년 값이 없는 구간, 2061~2080) 값 — "앱 계산" 표시 대상
+ *  1) 전처리에서 미리 계산해 official.periods에 넣었으면 그 값
+ *  2) 아니면 공식 10년 값들의 평균 (구간 안의 10년 값이 하나라도 없으면 null)
+ */
 export function derivedPeriodValue(el, scen, meta, region) {
-  const dec = el?.official?.decades?.[scen];
-  if (!dec) return null;
+  const pre = precomputed(el, scen, meta.id, region);
+  if (pre != null) return pre;
   const vals = [];
   for (const y of decadeStarts(meta)) {
-    const v = dec[String(y)]?.[region];
-    if (!isNum(v)) return null;
+    const v = decadeValue(el, scen, y, region);
+    if (v == null) return null;
     vals.push(v);
   }
   return vals.length ? mean(vals) : null;
+}
+
+/** 파생 기간 계산 방법 설명 (자료 파일의 derived[id].method가 있으면 그것) */
+export function derivedMethod(el, meta) {
+  const m = el?.derived?.[meta.id]?.method;
+  return typeof m === 'string' && m ? m : null;
 }
 
 /** 기간 값: 현재(cur)는 공식 현재기후 값, 파생 기간은 10년 값 평균, 나머지는 공식 20년 값 */

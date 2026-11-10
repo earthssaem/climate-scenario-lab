@@ -67,6 +67,17 @@ await test('2061~2080: 10년 공식값(2061, 2071) 평균, 하나라도 없으�
   assert.equal(D.derivedAvailable({ official: {} }, p3), false);
 });
 
+await test('2061~2080: 미리 계산된 값이 있으면 그 값, decades는 두 배치 모두 읽음', () => {
+  const p3 = PERIODS[3];
+  const PRE = { official: { periods: { ssp126: { p3: { 11: 15.5 } } }, decades: { ssp126: { '00': { 2061: 13.9, 2071: 14.0 } } } } };
+  assert.equal(D.periodValue(PRE, 'ssp126', 'p3', '11', PERIODS), 15.5);                 // 미리 계산된 값
+  assert.ok(Math.abs(D.periodValue(PRE, 'ssp126', 'p3', '00', PERIODS) - 13.95) < 1e-9);  // decades[시나리오][지역][연도]
+  assert.equal(D.decadeValue(EL, 'ssp126', 2061, '00'), 11.4);                            // decades[시나리오][연도][지역]
+  assert.equal(D.derivedAvailable(PRE, p3), true);
+  assert.equal(D.derivedAvailable({ official: { decades: { ssp126: { '00': { 2061: 1 } } } } }, p3), false); // 2071 없음
+  assert.equal(D.derivedMethod({ derived: { p3: { method: '방법' } } }, p3), '방법');
+});
+
 await test('변화량·변화율·차이', () => {
   assert.equal(D.toMode(12, 10, 'abs'), 12);
   assert.equal(D.toMode(12, 10, 'chg'), 2);

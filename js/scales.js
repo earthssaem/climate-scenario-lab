@@ -41,7 +41,10 @@ export function textOn(hex) {
 
 const fallbackCache = new WeakMap();
 function scaleOf(el, v) {
-  if (el?.scale) return el.scale;
+  const sc = el?.scale;
+  // 기간·연별로 나뉜 형식 { period:{…}, annual:{…} } 도 받음: 연도 보기에는 연별 범위, 그 밖에는 기간 범위
+  if (sc?.period) return v.s.year != null && sc.annual ? sc.annual : sc.period;
+  if (sc) return sc;
   // scale이 빠진 파일을 위한 대비책(요소마다 한 번 계산해 고정). 실제 데이터에는 scale을 넣어 주세요.
   if (!fallbackCache.has(el)) {
     console.warn('요소 파일에 scale이 없어 앱에서 계산합니다:', v.elMeta?.id);

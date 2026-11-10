@@ -35,6 +35,35 @@ export const T = {
   footerSources: '자료: 기상청 기후정보포털(SSP 남한상세 행정구역 전망, MK-PRISM), 기상청 관측자료, IPCC AR6 WG1 (CC BY 4.0)',
 };
 
+// 그래프 아래 한 줄 (긴 안내는 그래프 ⓘ 안으로)
+T.graphLineObs = '회색 = 지점 관측 · 색 선 = 지역 평균 전망';
+T.graphLine = '색 선 = 지역 평균 전망 · 굵은 선분 = 20년 평균';
+T.graphLinePeriodOnly = '굵은 선분 = 공식 20년 평균';
+T.mockBadge = '예시';
+T.mockWatermark = '예시 데이터';
+T.curNoDiffShort = '현재는 차이 없음';
+T.noYearValue = '연도별 값 없음';
+T.details = '기간별 표';
+T.regionChooser = '지역 고르기';
+T.elementChooser = '기후요소 고르기';
+T.periodChooser = '기간 고르기';
+T.modeChooser = '표시 방식';
+T.regionA = '지역 A';
+T.regionB = '비교 지역 B';
+T.noCompare = '비교 안 함';
+T.endYear = '연도 보기 끝내기';
+T.diffMapTag = '차이 B−A 지도';
+
+/** 그래프 ⓘ 창 내용 (그래프 층 설명 + 긴 안내문) */
+export const GRAPH_INFO = [
+  ['색 선', '시나리오별 전망(지역 면적 평균, 5개 기후모델 평균). 4개 모두를 켜면 나머지 두 시나리오가 가는 선으로 더해져요.'],
+  ['진한 회색 선', '현재기후(2000~2019, 지역 면적 평균). 옅은 회색 띠는 그 20년 평균이고, 변화량 모드에서는 0선과 같아요.'],
+  ['굵은 선분', '기간별 20년 평균(공식값). 2061~2080은 공식 10년 값 두 개의 평균(앱 계산)이라 옅게 그려요.'],
+  ['회색 점', '장기관측(특정 관측 지점의 값). 평균기온 + 변화량 모드에서만 켤 수 있어요.'],
+  ['아래 기간 띠', '누르면 그 기간이 선택되고, 지도는 그 기간의 20년 평균을 보여 줘요.'],
+  ['그래프 누르기', '그 연도를 보고, 지도도 그 연도로 바뀌어요.'],
+];
+
 /** p3처럼 파생 기간의 안내 문구 — 기간 정보(start/end)로 만듭니다. */
 export function derivedNote(meta) {
   const a = meta.start;
