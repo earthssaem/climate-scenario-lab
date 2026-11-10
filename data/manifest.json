@@ -1,0 +1,202 @@
+{
+  "version": "mock-0.1",
+  "mock": true,
+  "regions": [
+    {
+      "code": "00",
+      "name": "전국",
+      "short": "전국"
+    },
+    {
+      "code": "11",
+      "name": "서울특별시",
+      "short": "서울"
+    },
+    {
+      "code": "26",
+      "name": "부산광역시",
+      "short": "부산"
+    },
+    {
+      "code": "27",
+      "name": "대구광역시",
+      "short": "대구"
+    },
+    {
+      "code": "28",
+      "name": "인천광역시",
+      "short": "인천"
+    },
+    {
+      "code": "29",
+      "name": "광주광역시",
+      "short": "광주"
+    },
+    {
+      "code": "30",
+      "name": "대전광역시",
+      "short": "대전"
+    },
+    {
+      "code": "31",
+      "name": "울산광역시",
+      "short": "울산"
+    },
+    {
+      "code": "36",
+      "name": "세종특별자치시",
+      "short": "세종"
+    },
+    {
+      "code": "41",
+      "name": "경기도",
+      "short": "경기"
+    },
+    {
+      "code": "51",
+      "name": "강원특별자치도",
+      "short": "강원"
+    },
+    {
+      "code": "43",
+      "name": "충청북도",
+      "short": "충북"
+    },
+    {
+      "code": "44",
+      "name": "충청남도",
+      "short": "충남"
+    },
+    {
+      "code": "52",
+      "name": "전북특별자치도",
+      "short": "전북"
+    },
+    {
+      "code": "46",
+      "name": "전라남도",
+      "short": "전남"
+    },
+    {
+      "code": "47",
+      "name": "경상북도",
+      "short": "경북"
+    },
+    {
+      "code": "48",
+      "name": "경상남도",
+      "short": "경남"
+    },
+    {
+      "code": "50",
+      "name": "제주특별자치도",
+      "short": "제주"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "ssp126",
+      "label": "SSP1-2.6",
+      "level": "배출 낮음",
+      "color": "#173C66",
+      "co2_2100_ppm": 432
+    },
+    {
+      "id": "ssp245",
+      "label": "SSP2-4.5",
+      "level": "배출 중간",
+      "color": "#F79420",
+      "co2_2100_ppm": 567
+    },
+    {
+      "id": "ssp370",
+      "label": "SSP3-7.0",
+      "level": "배출 높음",
+      "color": "#E71D25",
+      "co2_2100_ppm": 834
+    },
+    {
+      "id": "ssp585",
+      "label": "SSP5-8.5",
+      "level": "배출 매우 높음",
+      "color": "#951B1E",
+      "co2_2100_ppm": 1089
+    }
+  ],
+  "elements": [
+    {
+      "id": "tavg",
+      "name": "평균기온",
+      "unit": "℃",
+      "kind": "temp",
+      "file": "elements/tavg.json"
+    },
+    {
+      "id": "prcp",
+      "name": "강수량",
+      "unit": "mm",
+      "kind": "prcp",
+      "file": "elements/prcp.json"
+    },
+    {
+      "id": "heat",
+      "name": "폭염일수",
+      "unit": "일",
+      "kind": "days",
+      "file": "elements/heat.json"
+    },
+    {
+      "id": "tropical",
+      "name": "열대야일수",
+      "unit": "일",
+      "kind": "days",
+      "file": "elements/tropical.json"
+    },
+    {
+      "id": "cold",
+      "name": "한파일수",
+      "unit": "일",
+      "kind": "days",
+      "file": "elements/cold.json"
+    }
+  ],
+  "periods": [
+    {
+      "id": "cur",
+      "label": "현재",
+      "start": 2000,
+      "end": 2019
+    },
+    {
+      "id": "p1",
+      "label": "전반기",
+      "start": 2021,
+      "end": 2040
+    },
+    {
+      "id": "p2",
+      "label": "중반기",
+      "start": 2041,
+      "end": 2060
+    },
+    {
+      "id": "p3",
+      "label": "2061~2080",
+      "start": 2061,
+      "end": 2080,
+      "derived": true
+    },
+    {
+      "id": "p4",
+      "label": "후반기",
+      "start": 2081,
+      "end": 2100
+    }
+  ],
+  "sources": {
+    "projection": "기상청 기후정보포털, SSP 남한상세 행정구역 자료(5개 모델 앙상블 평균)",
+    "current": "기상청 MK-PRISM v2.1 행정구역 자료(2000~2019)",
+    "obs": "기상청 기상정보분석·기상자료개방포털 ASOS",
+    "co2": "IPCC AR6 WG1 SPM.4 (CC BY 4.0)"
+  }
+}
