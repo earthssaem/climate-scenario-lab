@@ -166,6 +166,7 @@ function onChange(e) {
     case 'all4': return A.setAll4(t.checked);
     case 'obs-on': return A.setObsOn(t.checked);
     case 'obs-series': return A.setObsSeries(t.value);
+    case 'period-bars': return A.setPeriodBars(t.checked);
     default: return undefined;
   }
 }

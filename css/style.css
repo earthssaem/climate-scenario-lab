@@ -185,6 +185,8 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .chart-wrap canvas { cursor: pointer; }
 .in-legend { position: absolute; top: 10px; left: 64px; z-index: 4; display: flex; flex-wrap: wrap; gap: 4px 10px; pointer-events: none; max-width: calc(100% - 80px); }
 .in-legend .li { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 700; background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 1px 6px; }
+.in-legend .bar-sw { width: 18px; height: 5px; border-radius: 1px; background: #5b6475; }
+.in-legend .bar-sw.light { background: rgba(91, 100, 117, 0.45); }
 .period-band { position: relative; height: 44px; flex: none; }
 .period-band .pb {
   position: absolute; top: 0; height: 44px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--soft);

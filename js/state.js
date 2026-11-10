@@ -15,6 +15,7 @@ export const DEFAULT_STATE = Object.freeze({
   year: null,            // 숫자면 연도 보기 모드
   mapView: 'side',       // 'side' 나란히 | 'diff' 차이(B−A)
   obsLayer: Object.freeze({ on: true, series: '6avg' }),
+  periodBars: false,     // 그래프의 모든 기간 20년 평균 가로선 (끄면 선택한 기간의 A·B만 옅게)
   // 화면 조작용(열린 창 등). 탐구 조건이 아니며 역시 저장하지 않습니다.
   ui: Object.freeze({
     picker: null,        // 시나리오 선택 창: 'A' | 'B' | null
@@ -118,6 +119,7 @@ export function createStore() {
     setMapTab: (tab) => setUi({ mapTab: tab }),
     setObsOn: (on) => set({ obsLayer: { ...state.obsLayer, on: !!on } }),
     setObsSeries: (series) => set({ obsLayer: { ...state.obsLayer, series } }),
+    setPeriodBars: (on) => set({ periodBars: !!on }),
   };
 
   return {
