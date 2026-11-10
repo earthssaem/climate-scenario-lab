@@ -58,15 +58,17 @@ function drawShapes(geo, o) {
   };
 
   if (geo.type === 'paths') {
+    // 이름표 크기는 지도 좌표 크기에 맞춰 비례 조정 (타일 지도 폭 432 기준). labelScale로 지역별 조정 가능
+    const vbW = Number(String(geo.viewBox).trim().split(/[\s,]+/)[2]) || 432;
+    const k = vbW / 432;
     const body = geo.paths.map((p) => {
       const val = o.vals[p.code];
       const isNA = !o.blank && !D.isNum(val);
       const fill = fillOf(p.code);
       const auto = !(D.isNum(p.labelX) && D.isNum(p.labelY));
-      const lx = auto ? 0 : p.labelX;
-      const ly = auto ? 0 : p.labelY - 40;
-      return `<g ${attrs(p.code)}${auto ? ' data-auto-label="1"' : ''}><path class="shape" d="${esc(p.d)}" fill="${fill}"/>
-        <g class="lbl" transform="translate(${lx} ${ly})">${tileLabel(0, 0, o.names(p.code), o.blank ? '' : o.fmt(val), D.isNum(val) ? fill : NA_FILL, isNA, badge(p.code, 34, 14))}</g></g>`;
+      const ks = k * (D.isNum(p.labelScale) ? p.labelScale : 1);
+      return `<g ${attrs(p.code)}${auto ? ` data-auto-label="1" data-k="${ks}"` : ''}><path class="shape" d="${esc(p.d)}" fill="${fill}" vector-effect="non-scaling-stroke"/>
+        <g class="lbl" transform="translate(${auto ? 0 : p.labelX} ${auto ? 0 : p.labelY}) scale(${ks})">${tileLabel(0, -50, o.names(p.code), o.blank ? '' : o.fmt(val), D.isNum(val) ? fill : NA_FILL, isNA, badge(p.code, 34, -36))}</g></g>`;
     }).join('');
     return `<svg class="map-svg${o.picking ? ' picking' : ''}" viewBox="${esc(geo.viewBox)}" role="group" aria-label="${esc(o.aria)}">${hatchDefs(hatch)}${body}</svg>`;
   }
@@ -96,7 +98,7 @@ function placeAutoLabels(root) {
     const lbl = g.querySelector('.lbl');
     if (!shape || !lbl) return;
     const b = shape.getBBox();
-    lbl.setAttribute('transform', `translate(${b.x + b.width / 2} ${b.y + b.height / 2 - 40})`);
+    lbl.setAttribute('transform', `translate(${b.x + b.width / 2} ${b.y + b.height / 2}) scale(${g.dataset.k || 1})`);
   });
 }
 

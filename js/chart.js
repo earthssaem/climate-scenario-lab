@@ -206,10 +206,12 @@ function placeYearCard(root) {
   if (W < 520) { card.classList.add('below'); wrap.after(card); return; }
   card.classList.remove('below');
   if (card.parentElement !== wrap) wrap.appendChild(card);
+  // 커서 반대쪽 위 모서리에 붙임 (초기 값은 아래쪽에 있어 위 모서리가 대체로 비어 있음)
   const px = chart.scales.x.getPixelForValue(lastView.s.year);
-  card.style.top = `${Math.max(4, (chart.chartArea?.top ?? 8) + 2)}px`;
-  if (px > W / 2) { card.style.left = ''; card.style.right = `${Math.max(4, W - px + 12)}px`; }
-  else { card.style.right = ''; card.style.left = `${Math.min(W - card.offsetWidth - 4, px + 12)}px`; }
+  const area = chart.chartArea;
+  card.style.top = `${Math.max(4, (area?.top ?? 8) + 4)}px`;
+  if (px > (area.left + area.right) / 2) { card.style.right = ''; card.style.left = `${area.left + 6}px`; }
+  else { card.style.left = ''; card.style.right = `${Math.max(4, W - area.right + 6)}px`; }
 }
 
 /* ───────────── 그리기 ───────────── */

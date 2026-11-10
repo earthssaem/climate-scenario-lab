@@ -207,13 +207,16 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .chart-notes p.obs { color: var(--ink-2); }
 .tap-hint { font-size: 14px; color: var(--muted); }
 .year-card {
-  position: absolute; top: 8px; z-index: 6; width: 250px; max-width: calc(100% - 16px);
+  position: absolute; top: 8px; z-index: 6; width: 262px; max-width: calc(100% - 16px);
   background: #fff; border: 1px solid var(--line-2); border-radius: 12px; padding: 8px 10px 10px;
   box-shadow: 0 4px 16px rgba(28, 35, 48, 0.12); font-size: 14px;
+  pointer-events: none;   /* 카드 아래 그래프도 누를 수 있게 (✕만 누름) */
 }
+.year-card .x { pointer-events: auto; }
 .year-card.below { position: static; width: auto; max-width: none; margin-top: 8px; box-shadow: none; }
 .year-card .yc-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.year-card .yc-head b { font-size: 16px; }
+.year-card .yc-head b { font-size: 16px; white-space: nowrap; }
+.year-card .yc-head .kind { white-space: nowrap; }
 .year-card .yc-head .x { margin-left: auto; min-width: 36px; min-height: 36px; border: 0; background: transparent; font-size: 16px; border-radius: 8px; }
 .year-card .kind { font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; }
 .year-card .grp { font-weight: 700; margin-top: 4px; }
@@ -315,7 +318,7 @@ footer .hub:hover{color:var(--ink);text-decoration-color:currentColor}
   .top { padding-top: 10px; }
   .brand h1 { font-size: 19px; }
   .brand .sub { font-size: 14px; }
-  .bar-label { min-width: 0; flex-basis: 100%; }
+  .bar-label { min-width: 0; font-size: 14px; }
   .bar-row { gap: 6px; }
   .chip { padding: 0 11px; }
   .scen-btn .lv { display: none; }
