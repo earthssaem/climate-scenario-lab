@@ -224,8 +224,8 @@ function pickerHTML(v) {
   return dialogShell(`시나리오 고르기${s.scenMode === 'single' ? '' : ` <span class="slot-tag">${slot}</span>`}`, `
       ${info}
       ${infoOpen ? '' : `<ul class="scen-list">${items}${none}</ul>
-      <p class="caption"><span class="cap-swatch" aria-hidden="true"></span>미니 그래프: ${T.emissionCaption} ${retry}</p>
-      <p class="help">ⓘ ${T.pickerTextbook}</p>`}`, 'picker');
+      <p class="caption">${esc(T.emissionCaption(em?.years?.[0], em?.years?.[em.years.length - 1]))} ${retry}</p>
+      <p class="help">ⓘ <b>${esc(T.pickerTextbookLead)}</b> ${esc(T.pickerTextbook)}</p>`}`, 'picker');
 }
 
 function infoHTML(v) {

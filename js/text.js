@@ -22,8 +22,10 @@ export const T = {
   needB: 'B 시나리오를 고르면 두 시나리오의 차이를 볼 수 있어요',
   appCalc: '앱 계산',
   clampNote: '범위를 넘는 값은 양 끝 색으로 칠했어요.',
-  pickerTextbook: '교과서 그래프는 전 지구 평균·산업화 이전 기준이라 이 앱(우리나라·2000~2019 기준)과 숫자가 다릅니다.',
-  emissionCaption: '전 지구 연간 CO₂ 배출량(GtCO₂/년) · 대기 중 농도가 아님 · 가로축은 실제 연도 간격(점 = 자료가 있는 해) · 네 곡선 같은 세로축 · 출처 IPCC AR6',
+  pickerTextbookLead: '교과서 그래프와 숫자가 다른 이유:',
+  pickerTextbook: "교과서는 '전 세계 평균 기온'을 '산업화 이전(1850~1900년)'과 비교하고, 이 앱은 '우리나라 지역의 기온'을 '현재기후(2000~2019년)'와 비교해요.",
+  // 시나리오 창 작은 그래프 설명 — 단위(GtCO₂/년)·가로축 간격·점의 뜻은 화면에 두지 않고 자료 출처 창(manifest.sources.co2Graph)에만
+  emissionCaption: (y0 = 2015, y1 = 2100) => `작은 그래프: 전 세계가 1년 동안 내보내는 CO₂의 양(배출량)이 ${y0}~${y1}년에 어떻게 변하는지 보여 줘요. 네 그래프는 같은 눈금이에요. 0 아래로 내려가면 내보내는 양보다 없애는 양이 더 많다는 뜻이에요. (출처: IPCC 제6차 보고서)`,
   co2Label: '2100년 예상 대기 중 CO₂ 농도',
   noneScenario: '선택 안 함',
   noneScenarioDesc: '시나리오 하나만 봅니다.',
@@ -257,7 +259,7 @@ export const periodOnlyHint = '지도에서 시도를 고르면 연도별 값을
 
 /* ───────────── 출처 (푸터) ───────────── */
 
-const SOURCE_LABELS = { projection: '전망', current: '현재기후', official: '공식 기간값', download: '자료 받는 곳', obs: '장기관측', co2: 'CO₂ 배출 경로', scenarioText: '시나리오 설명' };
+const SOURCE_LABELS = { projection: '전망', current: '현재기후', official: '공식 기간값', download: '자료 받는 곳', obs: '장기관측', co2: 'CO₂ 배출 경로', co2Graph: '작은 CO₂ 그래프', scenarioText: '시나리오 설명' };
 
 /** manifest.sources → [{label, text}] — 문구는 파일 그대로 (정해진 순서, 그 밖의 키는 뒤에) */
 export function sourceLines(sources) {
