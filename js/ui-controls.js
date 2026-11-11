@@ -49,8 +49,12 @@ export function renderCondRow(root, v) {
     ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>`
     : `<div class="period-tabs" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
       const off = p.derived && !v.derivedOk(p);
-      return `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(p.id === s.period)} ${off ? 'disabled' : ''}
-        aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalc})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${esc(p.derived ? `${p.label}*` : p.label)}</button>`;
+      // 현재는 기간을 화면에 바로 "현재(2000~2019)", 2061~2080은 별표 대신 눌러서 여는 ⓘ
+      const text = p.id === 'cur' ? `${p.label}(${p.start}~${p.end})` : p.label;
+      const btn = `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(p.id === s.period)} ${off ? 'disabled' : ''}
+        aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalcValue})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${esc(text)}</button>`;
+      return p.derived ? `${btn}<button class="icon-btn period-info" data-action="note" data-id="${esc(p.id)}" data-key="note-${esc(p.id)}"
+        aria-haspopup="dialog" aria-label="${esc(p.label)} 기간 설명">ⓘ</button>` : btn;
     }).join('')}</div>`;
   root.innerHTML = `
     <div class="cg" role="group" aria-labelledby="lblScen">
@@ -72,10 +76,13 @@ export function regionToolsHTML(v) {
       ${s.regionA !== '00' ? `<button class="chip" data-action="nation" data-key="nation">전국</button>` : ''}
       <button class="chip ghost" data-action="cancel-pick" data-key="cancel-pick">취소</button>`;
   }
-  const label = `<span class="region-label">분석 지역: <b>${name(s.regionA)}</b>${s.regionB
-    ? ` · 비교: <b>${name(s.regionB)}</b><button class="x" data-action="clear-b" data-key="clear-b" aria-label="지역 비교 끝내기">✕</button>` : ''}</span>`;
+  // "분석 지역: 서울 ▾"을 누르면 17개 시도 목록. 지도를 눌러 고르는 방법도 그대로
+  const label = `<span class="region-label"><button class="region-btn" data-action="region-list" data-key="region-list" aria-haspopup="dialog"
+    aria-label="분석 지역 ${name(s.regionA)} — 목록에서 바꾸기">분석 지역: <b>${name(s.regionA)}</b><span class="caret" aria-hidden="true">▾</span></button>${s.regionB
+    ? `<span class="cmp">· 비교: <b>${name(s.regionB)}</b></span><button class="x" data-action="clear-b" data-key="clear-b" aria-label="지역 비교 끝내기">✕</button>` : ''}</span>`;
+  const hint = `<span class="map-hint">${T.mapHint}</span>`;
   const nation = `<button class="chip" data-action="nation" data-key="nation" ${s.regionA === '00' ? 'disabled' : ''}>전국으로</button>`;
-  return `${label}${nation}${s.regionB ? '' : `<button class="chip ghost" data-action="pick-b" data-key="pick-b">+ 비교 지역</button>`}`;
+  return `${label}${hint}${nation}${s.regionB ? '' : `<button class="chip ghost" data-action="pick-b" data-key="pick-b">+ 비교 지역</button>`}`;
 }
 
 /* ───────────── 시나리오 선택 창 ───────────── */
@@ -195,6 +202,38 @@ function graphInfoHTML(v) {
     ${v.stations?.missingNote ? `<p class="help">${esc(v.stations.missingNote)}</p>` : ''}`, 'info');
 }
 
+/** "분석 지역: 서울 ▾" 창: 17개 시도를 특별·광역시와 도로 나눠 큰 버튼으로 */
+function regionListHTML(v) {
+  const { s } = v;
+  const list = v.manifest.regions.filter((r) => r.code !== '00');
+  const isProvince = (r) => /도$/.test(r.name ?? '');
+  const btn = (r) => `<button class="region-opt" data-action="pick-region" data-code="${esc(r.code)}" data-key="rg-${esc(r.code)}" ${pressed(r.code === s.regionA)}
+    aria-label="${esc(r.name ?? r.short)}">${esc(r.short)}</button>`;
+  const group = (title, rs) => (rs.length ? `<h3 class="rg-group">${title}</h3><div class="region-grid">${rs.map(btn).join('')}</div>` : '');
+  return dialogShell('분석 지역 고르기', `
+      <p class="dlg-intro">지도를 눌러도 바꿀 수 있어요. 전국은 지도 위 [전국으로]를 누르세요.</p>
+      ${group('특별시·광역시·특별자치시', list.filter((r) => !isProvince(r)))}
+      ${group('도·특별자치도', list.filter(isProvince))}`, 'regions');
+}
+
+/** 짧은 ⓘ 설명 창 (2061~2080 기간, 지도 색) */
+function noteHTML(v) {
+  const id = v.s.ui.note;
+  if (id === 'legend') return dialogShell('지도 색', `<p>${esc(legendNote(v))}</p>`, 'note');
+  const p = v.manifest.periods.find((x) => x.id === id);
+  if (!p) return '';
+  const method = v.el ? D.derivedMethod(v.el, p) : null;
+  const text = method ? T.p3Note : `이 기간은 기상청 공식 기간값이 없어, ${derivedNote(p).replace(/^\* /, '').replace(/했습니다\.$/, '한 값입니다.')}`;
+  return dialogShell(`${esc(p.label)} 기간`, `<p>${esc(text)}</p>`, 'note');
+}
+
+/** 공통 범례 ⓘ 문구 — 지금 표시 방식에 맞게 */
+export function legendNote(v) {
+  const { s, elMeta, pct } = v;
+  const what = s.mode === 'abs' ? `각 지역의 ${elMeta.name} 값` : pct ? '현재 대비 변화율' : elMeta.kind === 'temp' ? '현재 대비 상승량' : '현재 대비 변화량';
+  return `지도 색은 시나리오를 구분하는 색이 아니라 ${what}입니다. 두 지도는 같은 색 범위를 씁니다.`;
+}
+
 /** 푸터 [자료 출처 ⓘ] 창: manifest.sources와 지도 파일(sido.json)의 출처·출처표시 문구를 그대로 */
 function sourcesHTML(v) {
   const items = sourceLines(v.manifest?.sources).map((l) => `<dt>${esc(l.label)}</dt><dd>${linkify(l.text)}</dd>`);
@@ -215,6 +254,8 @@ export function renderDialogs(root, v) {
   else if (s.ui.info && v.elMeta) { key = `info-${v.elMeta.id}`; html = infoHTML(v); }
   else if (s.ui.graphInfo) { key = 'graphinfo'; html = graphInfoHTML(v); }
   else if (s.ui.sources) { key = 'sources'; html = sourcesHTML(v); }
+  else if (s.ui.regionList && v.manifest) { key = 'regions'; html = regionListHTML(v); }
+  else if (s.ui.note && v.manifest) { key = `note-${s.ui.note}`; html = noteHTML(v); }
   if (!key || !html) {
     root.innerHTML = '';
     document.body.classList.remove('dlg-open');

@@ -4,7 +4,7 @@
 import * as D from './data.js';
 import { T, esc, fmtNum, fmtSigned, unitOf, modeName } from './text.js';
 import { mapScale } from './scales.js';
-import { regionToolsHTML } from './ui-controls.js';
+import { regionToolsHTML, legendNote } from './ui-controls.js';
 
 const NARROW_PX = 520;  // 지도 영역 폭이 이보다 좁으면 A/B 전환 탭으로 한 장씩 (지도 한 장 최소 260px)
 let narrow = false;
@@ -53,7 +53,8 @@ function drawMap(geo, o) {
     return `<rect class="inset-box" x="${x}" y="${y}" width="${w}" height="${h}" rx="4"/>${pts}${cap}`;
   }).join('');
 
-  const outline = (code, cls) => (code && byCode[code] ? `<path class="${cls}" d="${esc(byCode[code].d)}"/>` : '');
+  // 선택한 지역 경계: 흰 테두리를 먼저 깔고 굵은 선 (A·B 두 지도 모두)
+  const outline = (code, cls) => (code && byCode[code] ? `<path class="sel-halo" d="${esc(byCode[code].d)}"/><path class="${cls}" d="${esc(byCode[code].d)}"/>` : '');
 
   // 이름표: 도(道)는 작게 늘 표시, 작은 시(市)는 선택했을 때만 크게
   const labels = geo.paths.map((p) => {
@@ -233,7 +234,7 @@ export function renderMap(root, v) {
   const lowWord = !isDiv || scale.min < 0 ? `<span>← ${esc(scale.low)}</span>` : '<span></span>';
   const highWord = !isDiv || scale.max > 0 ? `<span>${esc(scale.high)} →</span>` : '<span></span>';
   const legend = message ? `<div class="legend empty"></div>` : `<div class="legend${zeroIn ? ' has-zero' : ''}">
-    <span class="lg-title">${lgTitle}${scale.annualRange ? `<span class="lg-tag">연도 보기 색 범위</span>` : ''}<span class="u">${esc(unit)} · ${which === 'diff' ? (v.pct ? '변화율 차이' : '시나리오 차이') : esc(modeName(s.mode, v.pct))}</span></span>
+    <span class="lg-title"><span class="lg-name">${lgTitle}${lgTitle === '공통 범례' ? `<button class="lg-info" data-action="note" data-id="legend" data-key="note-legend" aria-haspopup="dialog" aria-label="지도 색 설명: ${esc(legendNote(v))}">ⓘ</button>` : ''}</span>${scale.annualRange ? `<span class="lg-tag">연도 보기 색 범위</span>` : ''}<span class="u">${esc(unit)} · ${which === 'diff' ? (v.pct ? '변화율 차이' : '시나리오 차이') : esc(modeName(s.mode, v.pct))}</span></span>
     <span class="lg-end">${tick(scale.min)}</span>
     <span class="lg-bar-wrap"><span class="bar" style="background:${scale.gradient}">${zeroMark}</span>
       <span class="words">${lowWord}${highWord}</span></span>
@@ -247,7 +248,7 @@ export function renderMap(root, v) {
 
   const viewSeg = `<div class="seg" role="group" aria-label="지도 보기">
         <button data-action="map-view" data-view="side" data-key="mv-side" aria-pressed="${which === 'value'}">나란히</button>
-        <button data-action="map-view" data-view="diff" data-key="mv-diff" aria-pressed="${which === 'diff'}" ${B ? '' : 'disabled title="B 시나리오를 고르면 쓸 수 있어요"'}>차이 B−A</button>
+        <button data-action="map-view" data-view="diff" data-key="mv-diff" aria-pressed="${which === 'diff'}" ${B ? '' : 'disabled'}>차이 B−A</button>
       </div>`;
   // 지도 한 장씩 보는 좁은 화면: [나란히|차이]를 A/B 고르기 줄에 함께 두어 지도 높이를 확보
   root.innerHTML = `

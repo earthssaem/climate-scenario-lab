@@ -188,8 +188,8 @@ export function renderKeybar(root, v) {
   const pMeta = s.year == null ? v.periodMeta(s.period) : null;
   const ySrc = s.year != null ? D.yearSource(el, s.year) : null;
   const noDiff = (pMeta && pMeta.id === 'cur') || ySrc === 'current';
-  const calc = pMeta?.derived ? `<span class="calc">${T.appCalc}</span>` : '';
-  const badge = v.mock ? `<span class="mock-badge" title="${T.mockBanner}">${T.mockBadge}</span>` : '';
+  const calc = pMeta?.derived ? `<span class="kb-calc">${T.appCalcValue}</span>` : '';
+  const badge = v.mock ? `<span class="mock-badge">${T.mockBadge}</span>` : '';
   const chgUnit = unitOf(elMeta, v.pct, 'change');
   const nm = (c) => esc(v.regionMeta(c)?.short ?? c);
 
@@ -209,21 +209,20 @@ export function renderKeybar(root, v) {
       if (noDiff && s.mode !== 'abs') small = valTxt;
     }
     return `<span class="kb-item"><span class="ab">${slot}</span><span class="sdot" style="--c:${esc(m.color)}"></span><span class="lbl">${esc(m.label)}</span>
-      <b class="big">${big}</b>${small ? `<span class="small">(${small})</span>` : ''}${calc}${D.isNum(value) ? badge : ''}</span>`;
+      <b class="big">${big}</b>${small ? `<span class="small">(${small})</span>` : ''}${D.isNum(value) ? badge : ''}</span>`;
   };
   const diffItem = (r) => {
     if (!B) return '';
-    if (noDiff) return `<span class="kb-item diff"><span class="lbl">B − A</span><b class="big na">${T.curNoDiffShort}</b></span>`;
+    if (noDiff) return `<span class="kb-item diff"><span class="lbl">${T.scenDiff}</span><b class="big na">${T.curNoDiffShort}</b></span>`;
     const a = D.toMode(raw(s.scenA, r), D.curValue(el, r), s.mode, v.pct);
     const b = D.toMode(raw(s.scenB, r), D.curValue(el, r), s.mode, v.pct);
     const d = D.diffBA(a, b);
-    return `<span class="kb-item diff"><span class="lbl">B − A</span><b class="big">${D.isNum(d) ? fmtDiff(d, elMeta, v.pct) : `<span class="na">${missing(r)}</span>`}</b>
-      <span class="small">(${T.appCalc})</span>${D.isNum(d) ? badge : ''}</span>`;
+    return `<span class="kb-item diff"><span class="lbl">${T.scenDiff}</span><b class="big">${D.isNum(d) ? fmtDiff(d, elMeta, v.pct) : `<span class="na">${missing(r)}</span>`}</b>${D.isNum(d) ? badge : ''}</span>`;
   };
 
   root.innerHTML = regions.map((r, i) => `<div class="kb-row">
       ${compare ? `<span class="kb-region"><span class="badge${i ? ' b' : ''}">${i ? 'B' : 'A'}</span>${nm(r)}</span>` : ''}
-      ${item('A', A, r)}${B ? item('B', B, r) : ''}${diffItem(r)}
+      ${item('A', A, r)}${B ? item('B', B, r) : ''}${diffItem(r)}${calc}
       ${i === 0 ? `<button class="details-btn" data-action="toggle-details" data-key="details" aria-expanded="${s.ui.details}" aria-controls="details">
         ${s.ui.details ? '▴' : '▾'} ${T.details}</button>` : ''}
     </div>`).join('');

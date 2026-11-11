@@ -10,7 +10,6 @@ let lastView = null;
 
 const C_OBS = '#9aa1ab';   // 관측: 옅은 회색 가는 점선 + 작은 점
 const C_CUR = '#262b33';   // 현재기후: 진한 회색 굵은 실선
-const FILL_AB = 'rgba(115, 125, 140, 0.16)';
 
 /* ───────────── 자료 → 점 ───────────── */
 
@@ -68,7 +67,6 @@ function build(v) {
     if (scenB) {
       const b = { key: `B-${r}`, data: points(D.seriesOf(el, s.scenB, r), base, s.mode, v.pct), borderColor: scenB.color, borderWidth: 2.5, borderDash: dash(r), pointRadius: 0, order: 10 };
       // A·B 사이를 옅게 채움 (지역 비교 중에는 선이 많아 생략)
-      if (!compare && r === s.regionA && idxA > -1) b.fill = { target: idxA, above: FILL_AB, below: FILL_AB };
       datasets.push(b);
     }
   });
@@ -204,12 +202,12 @@ function toolsHTML(v, b) {
   const barsFixed = b.periodOnly.length === b.regions.length;
   const opts = Object.entries(series).map(([k, val]) => `<option value="${esc(k)}" ${k === s.obsLayer.series ? 'selected' : ''}>${esc(val.name)}</option>`).join('');
   return `
-    <label class="check${all4Disabled ? ' disabled' : ''}" title="${all4Disabled ? T.all4Disabled : ''}"><input type="checkbox" data-change="all4" data-key="all4"
+    <label class="check${all4Disabled ? ' disabled' : ''}"><input type="checkbox" data-change="all4" data-key="all4"
       ${s.showAll4 && !all4Disabled ? 'checked' : ''} ${all4Disabled ? 'disabled' : ''}><span>4개 모두 보기</span></label>
     <label class="check${obsDisabled ? ' disabled' : ''}"><input type="checkbox" data-change="obs-on" data-key="obs-on"
       ${v.obsOn ? 'checked' : ''} ${obsDisabled ? 'disabled' : ''}><span>과거 관측 보기(1912~)</span></label>
     ${v.obsOn ? `<select data-change="obs-series" data-key="obs-series" aria-label="관측 자료 고르기">${opts}</select>` : ''}
-    <label class="check${barsFixed ? ' disabled' : ''}" title="${barsFixed ? T.barsFixed : ''}"><input type="checkbox" data-change="period-bars" data-key="period-bars"
+    <label class="check${barsFixed ? ' disabled' : ''}"><input type="checkbox" data-change="period-bars" data-key="period-bars"
       ${s.periodBars || barsFixed ? 'checked' : ''} ${barsFixed ? 'disabled' : ''}><span>20년 평균선 표시</span></label>
     <button class="icon-btn" data-action="graph-info" data-key="graph-info" aria-haspopup="dialog" aria-label="그래프 읽는 법">ⓘ</button>`;
 }
@@ -236,7 +234,9 @@ function noteLine(v, b) {
   }
   if (s.obsLayer.on && !v.obsAllowed) parts.push(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`);
   if (s.regionB) parts.push('지역 비교 중에는 4개 모두를 쓸 수 없어요');
-  return parts.join(' · ');
+  const line = parts.join(' · ');
+  // 연도별 선이 있으면 끝에: 기후모델 전망값이지 그해 날씨 예보가 아님
+  return b.periodOnly.length === b.regions.length ? line : `${line}. ${T.graphLineModel}`;
 }
 
 /* ───────────── 연도 정보 줄 (그래프 위쪽 가장자리) ───────────── */

@@ -117,6 +117,9 @@ function handle(action, ds, el, evt) {
     case 'info': lastOpener = 'info'; return A.openInfo();
     case 'graph-info': lastOpener = 'graph-info'; return A.openGraphInfo();
     case 'sources': lastOpener = 'sources'; return A.openSources();
+    case 'region-list': lastOpener = 'region-list'; return A.openRegionList();
+    case 'pick-region': lastOpener = 'region-list'; return A.selectRegion(ds.code);
+    case 'note': lastOpener = el?.dataset.key || ''; return A.openNote(ds.id);
     case 'picker': lastOpener = el?.dataset.key || `picker-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
     case 'pick-scen': return A.setScenario(ds.slot, ds.id || null);
     case 'close-dialog': return A.closeDialogs();
@@ -168,7 +171,7 @@ function bindEvents() {
   // SVG 지역처럼 <button>이 아닌 누름 대상: Enter / Space
   document.addEventListener('keydown', (e) => {
     const ui = store.get().ui;
-    if (e.key === 'Escape' && (ui.picker || ui.info || ui.graphInfo || ui.sources)) { A.closeDialogs(); return; }
+    if (e.key === 'Escape' && (ui.picker || ui.info || ui.graphInfo || ui.sources || ui.regionList || ui.note)) { A.closeDialogs(); return; }
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const t = e.target.closest?.('[data-action][role="button"]');
     if (!t || t.tagName === 'BUTTON' || t.getAttribute('aria-disabled') === 'true') return;

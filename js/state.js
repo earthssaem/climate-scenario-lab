@@ -25,6 +25,8 @@ export const DEFAULT_STATE = Object.freeze({
     popup: null,         // 지도 말풍선 { code, fig, x, y } — 잠깐 보였다 사라짐
     details: false,      // [▾ 기간별 표] 펼침
     sources: false,      // 푸터 [자료 출처 ⓘ] 창
+    regionList: false,   // "분석 지역: 서울 ▾" 시도 목록 창
+    note: null,          // 짧은 ⓘ 설명 창: 'p3'(2061~2080) | 'legend'(지도 색) | null
   }),
 });
 
@@ -59,6 +61,9 @@ export function normalize(s, manifest) {
   return n;
 }
 
+// 열린 창이 하나도 없는 상태 (창을 열 때 다른 창은 모두 닫음)
+const NO_DIALOG = Object.freeze({ picker: null, info: false, graphInfo: false, sources: false, regionList: false, note: null });
+
 export function createStore() {
   let manifest = null;
   let state = clone(DEFAULT_STATE);
@@ -76,11 +81,13 @@ export function createStore() {
   const actions = {
     reset: () => set(clone(DEFAULT_STATE)),
     setElement: (id) => set({ element: id, ui: { ...state.ui, info: false } }),
-    openPicker: (slot) => setUi({ picker: slot, info: false, graphInfo: false, sources: false }),
-    openInfo: () => setUi({ info: true, picker: null, graphInfo: false, sources: false }),
-    openGraphInfo: () => setUi({ graphInfo: true, picker: null, info: false, sources: false }),
-    openSources: () => setUi({ sources: true, graphInfo: false, picker: null, info: false }),
-    closeDialogs: () => setUi({ picker: null, info: false, graphInfo: false, sources: false }),
+    openPicker: (slot) => setUi({ ...NO_DIALOG, picker: slot }),
+    openInfo: () => setUi({ ...NO_DIALOG, info: true }),
+    openGraphInfo: () => setUi({ ...NO_DIALOG, graphInfo: true }),
+    openSources: () => setUi({ ...NO_DIALOG, sources: true }),
+    openRegionList: () => setUi({ ...NO_DIALOG, regionList: true }),
+    openNote: (id) => setUi({ ...NO_DIALOG, note: id }),
+    closeDialogs: () => setUi({ ...NO_DIALOG }),
     showPopup: (popup) => setUi({ popup }),
     hidePopup: () => { if (state.ui.popup) setUi({ popup: null }); },
     toggleDetails: () => setUi({ details: !state.ui.details }),
@@ -104,6 +111,10 @@ export function createStore() {
         return set({ regionB: code, pickingRegionB: false });
       }
       set({ regionA: code, regionB: code === state.regionB ? null : state.regionB });
+    },
+    /** 분석 지역 목록에서 고르기 (지도 누르기와 같은 규칙, 창은 닫음) */
+    selectRegion(code) {
+      set({ regionA: code, regionB: code === state.regionB ? null : state.regionB, pickingRegionB: false, ui: { ...state.ui, ...NO_DIALOG } });
     },
     /** [전국] 버튼 */
     selectNation() { actions.tapRegion('00'); },
