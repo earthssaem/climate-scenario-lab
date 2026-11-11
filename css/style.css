@@ -64,6 +64,10 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .top-controls { display: flex; align-items: stretch; gap: 2px; flex: 1 1 auto; min-width: 0; }
 .top-controls > .icon-btn { align-self: center; }
 .mode-group { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-left: 16px; }
+/* 전체화면 버튼: 다른 버튼과 같은 높이·모서리. 1199px 이하에서 강수량 mm/%까지 있으면 글자는 숨기고 아이콘만 */
+.fs-btn { gap: 6px; padding: 0 12px; font-size: 15px; color: var(--ink-2); margin-left: 4px; }
+.fs-btn svg { flex: none; }
+.fs-btn[aria-pressed="true"] { color: var(--ink); }
 
 /* 기후요소: 선택한 항목에만 밑줄 (글자 굵기는 같게 두어 눌러도 자리가 흔들리지 않게) */
 .el-tabs { display: flex; align-items: stretch; }
@@ -170,6 +174,7 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .map-svg .inset-box { fill: none; stroke: #9aa1ab; stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: none; }
 .map-svg .pt { fill: none; stroke: var(--ink-2); stroke-width: 1.2; vector-effect: non-scaling-stroke; pointer-events: none; }
 .map-svg .pt-lb, .map-svg .lb { font-size: calc(var(--u, 1) * 14px); font-weight: 600; fill: var(--ink-2); paint-order: stroke; stroke: rgba(255, 255, 255, 0.9); stroke-width: calc(var(--u, 1) * 3px); stroke-linejoin: round; pointer-events: none; }
+.map-svg .lb.city { fill: var(--ink); font-weight: 700; }
 .map-svg .lb.sel { font-size: calc(var(--u, 1) * 16px); font-weight: 800; fill: var(--ink); stroke-width: calc(var(--u, 1) * 4px); }
 .map-svg .badge-c { fill: var(--ink); pointer-events: none; }
 .map-svg .badge-t { fill: #fff; font-size: calc(var(--u, 1) * 13px); font-weight: 800; pointer-events: none; }
@@ -391,6 +396,11 @@ footer .hub:hover{color:var(--ink);text-decoration-color:currentColor}
 /* 1199px 이하(1024×768 가로, 세로 태블릿, 휴대폰): 공통 조건을 짧게 — "시나리오"·"기간" 글자는 화면에서만 숨김(읽기 도구에는 남김).
    1024 가로는 한 줄에, 휴대폰은 A·B가 한 화면에 보이고 기간은 옆으로 밀어서 */
 @media (max-width: 1199px) {
+  .brand h1 { font-size: 18px; }
+  .el-tabs button { padding: 0 11px; }
+  .mode-group { padding-left: 8px; }
+  .mode-group:has(.seg + .seg) .fs-tx { display: none; }
+  .mode-group:has(.seg + .seg) .fs-btn { padding: 0 11px; }
   .cond-row .ctl-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 }
 @media (min-width: 641px) and (max-width: 1023px) {

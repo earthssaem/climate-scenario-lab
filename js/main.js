@@ -111,6 +111,18 @@ function showPopupFor(el, evt) {
   popTimer = setTimeout(() => A.hidePopup(), 2600);
 }
 
+/** 전체화면 켜고 끄기 — 버튼을 누른 그 순간에만 브라우저가 허락함. 켜짐 여부는 브라우저 것을 그대로 읽어 그림 */
+function toggleFullscreen() {
+  const d = document;
+  const el = d.documentElement;
+  if (d.fullscreenElement || d.webkitFullscreenElement) {
+    const exit = d.exitFullscreen || d.webkitExitFullscreen;
+    return exit?.call(d)?.catch?.(() => {});
+  }
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  return req?.call(el, { navigationUI: 'hide' })?.catch?.(() => {});
+}
+
 function handle(action, ds, el, evt) {
   switch (action) {
     case 'element': return A.setElement(ds.id);
@@ -118,6 +130,7 @@ function handle(action, ds, el, evt) {
     case 'graph-info': lastOpener = 'graph-info'; return A.openGraphInfo();
     case 'sources': lastOpener = 'sources'; return A.openSources();
     case 'region-list': lastOpener = 'region-list'; return A.openRegionList();
+    case 'fullscreen': return toggleFullscreen();
     case 'pick-region': lastOpener = 'region-list'; return A.selectRegion(ds.code);
     case 'note': lastOpener = el?.dataset.key || ''; return A.openNote(ds.id);
     case 'picker': lastOpener = el?.dataset.key || `picker-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
@@ -186,6 +199,9 @@ function bindEvents() {
     window.scrollTo(0, 0);
   });
   window.addEventListener('resize', scheduleRender);
+  // 전체화면이 켜지거나 꺼지면(Esc로 나간 경우 포함) 버튼 글자를 다시 그림
+  document.addEventListener('fullscreenchange', scheduleRender);
+  document.addEventListener('webkitfullscreenchange', scheduleRender);
 }
 
 /* ───────────── 시작 ───────────── */

@@ -29,7 +29,25 @@ export function renderTopControls(root, v) {
         <button data-action="prcp-unit" data-id="mm" data-key="pu-mm" ${pressed(s.prcpUnit === 'mm')}>mm</button>
         <button data-action="prcp-unit" data-id="pct" data-key="pu-pct" ${pressed(s.prcpUnit === 'pct')}>%</button>
       </div>` : ''}
+      ${fullscreenButton()}
     </div>`;
+}
+
+/* ───────────── 전체화면 (브라우저 Fullscreen API — 지원하지 않는 브라우저에서는 버튼을 숨김) ───────────── */
+
+export const fullscreenSupported = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+export const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+const FS_ICON = {
+  enter: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  exit: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+
+function fullscreenButton() {
+  if (!fullscreenSupported()) return '';
+  const on = isFullscreen();
+  const text = on ? '전체화면 끝내기' : '전체화면';
+  return `<button class="chip fs-btn" data-action="fullscreen" data-key="fullscreen" ${pressed(on)} aria-label="${text}">${on ? FS_ICON.exit : FS_ICON.enter}<span class="fs-tx">${text}</span></button>`;
 }
 
 /* ───────────── 2줄(공통 조건): 시나리오 A vs B | 기간 — 지도와 그래프가 함께 씀 ───────────── */

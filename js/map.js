@@ -13,7 +13,9 @@ export function mountMap(root, rerender) {
   if (!('ResizeObserver' in window)) return;
   const ro = new ResizeObserver((entries) => {
     const n = entries[0].contentRect.width < NARROW_PX;
-    if (n !== narrow) { narrow = n; rerender(); }
+    if (n !== narrow) { narrow = n; rerender(); return; }
+    // 크기만 바뀌면 다시 그리지 않고 이름표 크기·자리만 다시 맞춤 (화면 회전, 전체화면 등)
+    applyPixelScale(root);
   });
   ro.observe(root);
   narrow = root.clientWidth - 40 < NARROW_PX;
@@ -56,13 +58,14 @@ function drawMap(geo, o) {
   // 선택한 지역 경계: 흰 테두리를 먼저 깔고 굵은 선 (A·B 두 지도 모두)
   const outline = (code, cls) => (code && byCode[code] ? `<path class="sel-halo" d="${esc(byCode[code].d)}"/><path class="${cls}" d="${esc(byCode[code].d)}"/>` : '');
 
-  // 이름표: 도(道)는 작게 늘 표시, 작은 시(市)는 선택했을 때만 크게
+  // 이름표: 17개 시도 모두 늘 표시(시는 class "city"), 선택한 지역은 크고 굵게.
+  // 겹치면 applyPixelScale에서 선택 > 시 > 도 순서로 자리를 잡고 뒤의 이름표를 비켜 둠
   const labels = geo.paths.map((p) => {
     const xy = labelXY(p);
     if (!xy) return '';
     const sel = p.code === o.selA || p.code === o.selB;
-    if (!sel && !o.isProvince(p.code)) return '';
-    return `<text class="lb${sel ? ' sel' : ''}" x="${xy[0]}" y="${xy[1]}" text-anchor="middle" dominant-baseline="central">${esc(o.name(p.code))}</text>`;
+    const cls = ['lb', sel ? 'sel' : '', o.isProvince(p.code) ? '' : 'city'].filter(Boolean).join(' ');
+    return `<text class="${cls}" x="${xy[0]}" y="${xy[1]}" text-anchor="middle" dominant-baseline="central" data-code="${esc(p.code)}">${esc(o.name(p.code))}</text>`;
   }).join('');
 
   const badges = [[o.selA, 'A'], [o.selB, 'B']].filter(([c]) => c && o.badges && byCode[c]).map(([c, b]) => {
@@ -96,21 +99,40 @@ function applyPixelScale(root) {
         t.setAttribute(a, Number(orig) + Number(t.dataset[d]) * k);
       });
     });
-    // 선택한 작은 시(세종·광주 등) 이름표가 도 이름표와 겹치면 도 이름표를 위·아래로 비켜 둠
-    const sel = [...svg.querySelectorAll('text.lb.sel')];
-    svg.querySelectorAll('text.lb:not(.sel)').forEach((t) => {
-      t.dataset.y0 = t.dataset.y0 ?? t.getAttribute('y');
-      t.setAttribute('y', t.dataset.y0);
-      sel.forEach((sl) => {
-        const a = sl.getBBox();
-        const b = t.getBBox();
-        const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
-        const oy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
-        if (ox <= 0 || oy <= 0) return;
-        const down = b.y + b.height / 2 >= a.y + a.height / 2;
-        const shift = down ? a.y + a.height - b.y + 2 * k : -(b.y + b.height - a.y + 2 * k);
-        t.setAttribute('y', Number(t.getAttribute('y')) + shift);
-      });
+    // 이름표 겹침 풀기: 선택한 지역 > 시(특별·광역시) > 도 순서로 자리를 잡고, 앞의 이름표와 겹치면
+    // 가까운 자리부터(위·아래 한 줄, 옆으로 반 글자폭 …) 옮겨 봄. 시는 제 지역 가까이만, 도는 조금 더 멀리까지.
+    // 빈 자리가 없으면 겹침이 가장 적은 자리. 울릉도·독도 이름은 고정
+    const texts = [...svg.querySelectorAll('text.lb')];
+    texts.forEach((t) => {
+      t.dataset.lx = t.dataset.lx ?? t.getAttribute('x'); t.dataset.ly = t.dataset.ly ?? t.getAttribute('y');
+      t.setAttribute('x', t.dataset.lx); t.setAttribute('y', t.dataset.ly);
+    });
+    const rank = (t) => (t.classList.contains('sel') ? 0 : t.classList.contains('city') ? 1 : 2);
+    const area = (a, b) => Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) - 0.5 * k)
+      * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) - 0.5 * k);
+    const placed = [...svg.querySelectorAll('text.pt-lb')].map((t) => t.getBBox());
+    texts.sort((a, b) => rank(a) - rank(b)).forEach((t) => {
+      const x0 = Number(t.dataset.lx); const y0 = Number(t.dataset.ly);
+      const bb0 = t.getBBox();
+      const stepY = bb0.height + k; const stepX = bb0.width / 2 + k;
+      const maxD = rank(t) === 2 ? 2.2 * stepY : 1.8 * stepY;   // 도는 두 줄, 시·선택 지역은 한 줄 반 남짓까지만
+      const cands = [];
+      for (const dy of [0, 1, -1, 2, -2]) for (const dx of [0, 1, -1, 2, -2]) {
+        const d = Math.hypot(dx * stepX, dy * stepY);
+        if (d <= maxD) cands.push([dx * stepX, dy * stepY, d]);
+      }
+      cands.sort((a, b) => a[2] - b[2]);
+      let best = null;
+      for (const [dx, dy] of cands) {
+        t.setAttribute('x', x0 + dx); t.setAttribute('y', y0 + dy);
+        const bb = t.getBBox();
+        if (bb.x < vb.x || bb.x + bb.width > vb.x + vb.width || bb.y < vb.y || bb.y + bb.height > vb.y + vb.height) continue;   // 지도 밖으로는 안 나가게
+        const cost = placed.reduce((sum, q) => sum + area(bb, q), 0);
+        if (!best || cost < best.cost) best = { dx, dy, cost };
+        if (cost === 0) break;
+      }
+      t.setAttribute('x', x0 + (best?.dx ?? 0)); t.setAttribute('y', y0 + (best?.dy ?? 0));
+      placed.push(t.getBBox());
     });
   });
 }
@@ -261,6 +283,7 @@ export function renderMap(root, v) {
     ${legend}
     ${overlay}`;
   applyPixelScale(root);
+  requestAnimationFrame(() => applyPixelScale(root));   // 배치가 끝난 뒤 한 번 더 (처음 그릴 때 크기가 덜 잡혔을 수 있음)
   // 말풍선이 지도 밖으로 나가지 않게
   root.querySelectorAll('.map-pop').forEach((el2) => {
     const box = el2.parentElement.getBoundingClientRect();
