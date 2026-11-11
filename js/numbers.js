@@ -213,6 +213,8 @@ export function renderKeybar(root, v) {
   const obsExtra = obsSeries && src !== 'none'
     ? `<span class="kb-obs"><span class="obs-dot"></span>${esc(obsLabelText(obsSeries))} ${D.isNum(obsVal) ? withUnit(fmtSigned(obsVal), '℃') : T.noData}</span>` : '';
 
+  // "현재기후" 옆 ⓘ — 기간 버튼 옆 ⓘ와 같은 설명 창
+  const curInfoBtn = `<button class="lg-info kb-info" data-action="note" data-id="cur" data-key="note-cur-kb" aria-haspopup="dialog" aria-label="현재기후 설명">ⓘ</button>`;
   const cell = (lbl, val, cls = '') => `<div class="kb-item${cls ? ` ${cls}` : ''}">${lbl}<span class="kb-val">${val}</span></div>`;
   const lblScen = (slot, m) => `<span class="kb-lbl"><span class="ab">${slot}</span><span class="sdot" style="--c:${esc(m.color)}"></span>${esc(m.label)}</span>`;
   const lblText = (t) => `<span class="kb-lbl">${t}</span>`;
@@ -238,7 +240,7 @@ export function renderKeybar(root, v) {
   const curCell = (r) => {
     const base = D.curValue(el, r);
     const value = year != null ? D.regionYearValue(el, s.scenA, r, year) : base;
-    const lbl = lblText(`${T.curClimate}${compare ? '' : ` · ${nm(r)}`}`);
+    const lbl = lblText(`${T.curClimate}${compare ? '' : ` · ${nm(r)}`}${curInfoBtn}`);
     if (!D.isNum(value)) return cell(lbl, `<b class="big na">${missing(r)}</b>`, 'wide');
     const valTxt = withUnit(fmtNum(value), unit);
     if (year == null) return cell(lbl, `<b class="big">${valTxt}</b><span class="small">(${T.curBase})</span>${badge}`, 'wide');
@@ -266,7 +268,7 @@ export function renderKeybar(root, v) {
     const chg = D.toMode(value, base, 'chg', v.pct);
     return cell(lbl, `<b class="big">${withUnit(fmtNum(value), unit)}</b>${badge}`)
       + cell(lblText(v.pct ? '현재 대비 변화율' : '현재 대비 변화량'), D.isNum(chg)
-        ? `<b class="big">${withUnit(fmtSigned(chg), chgUnit)}</b>${D.isNum(base) ? `<span class="small">(현재기후 ${withUnit(fmtNum(base), unit)} 기준)</span>` : ''}`
+        ? `<b class="big">${withUnit(fmtSigned(chg), chgUnit)}</b>${D.isNum(base) ? `<span class="small">(현재기후 ${withUnit(fmtNum(base), unit)} 기준)${curInfoBtn}</span>` : ''}`
         : `<b class="big na">${T.noData}</b>`, 'diff');
   };
   const rowFor = (r, i) => {

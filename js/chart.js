@@ -87,42 +87,6 @@ function build(v) {
     const pm = v.periodMeta(s.period);
     if (pm) ann.sel = { type: 'box', xMin: pm.start - 0.5, xMax: pm.end + 0.5, backgroundColor: 'rgba(28, 35, 48, 0.07)', borderWidth: 0, drawTime: 'beforeDatasetsDraw' };
   }
-  // 20년 평균 가로선 — 「20년 평균선 표시」를 켰을 때만
-  //  · 켬: 모든 기간(전반기·중반기·2061~2080·후반기)의 A·B 가로선. 선택한 기간(음영)은 또렷하게, 다른 기간은 옅고 가늘게
-  //  · 끔(기본): 가로선을 하나도 그리지 않음 (연도별 전망 선만). 선택 기간 음영·지도·핵심 수치는 그대로
-  //  · 연별 선이 없는 지역(전국)은 이 가로선이 유일한 자료라 늘 그림
-  const barScens = [scenA, ...(scenB ? [scenB] : [])];
-  const selPeriod = s.year == null ? s.period : null;
-  let derivedShown = false;
-  let barsShown = false;
-  periods.filter((p) => p.id !== 'cur').forEach((p) => {
-    regions.forEach((r) => {
-      const po = periodOnly.includes(r);
-      if (!s.periodBars && !po) return;
-      const sel = p.id === selPeriod;
-      // 4개 모두: 연별 선이 없는 지역은 나머지 시나리오를 가는 20년 평균 막대로 추가
-      const scens = po ? [...barScens, ...others] : barScens;
-      scens.forEach((m) => {
-        const y = D.toMode(D.periodValue(el, m.id, p.id, r, periods), D.curValue(el, r), s.mode, v.pct);
-        if (!D.isNum(y)) return;
-        barsShown = true;
-        if (p.derived) derivedShown = true;
-        const thin = others.includes(m);
-        const w = thin ? 2 : sel ? 4 : 2.5;
-        const a = (sel ? 1 : 0.5) * (p.derived ? 0.55 : 1);
-        // 흰 테두리를 먼저 깔아 같은 색 선 위에서도 가로선이 보이게
-        ann[`halo-${p.id}-${r}-${m.id}`] = {
-          type: 'line', xMin: p.start - 0.3, xMax: p.end + 0.3, yMin: y, yMax: y,
-          borderColor: `rgba(255,255,255,${sel ? 0.95 : 0.8})`, borderWidth: w + 3, borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
-        };
-        ann[`bar-${p.id}-${r}-${m.id}`] = {
-          type: 'line', xMin: p.start, xMax: p.end, yMin: y, yMax: y,
-          borderColor: a < 1 ? alpha(m.color, a) : m.color, borderWidth: w, borderDash: dash(r),
-          borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
-        };
-      });
-    });
-  });
   let curLabelY = null;
   // 현재기후 연도별 선(진한 회색)에 이름표 — 관측 점선과 헷갈리지 않게
   const lineRegions = regions.filter((r) => !periodOnly.includes(r));
@@ -184,7 +148,70 @@ function build(v) {
     }
   }
 
-  return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown, periodOnly, barsShown };
+  // 기간 평균 추세선 — 「기간 평균 추세선 보기」를 켰을 때만 (연도별 값이 없는 전국은 이것이 유일한 자료라 늘)
+  //  · 각 기간의 20년 평균을 기간 가운데 연도(2030·2050·2070·2090)에 점으로: 공식값 ●, 앱 계산(2061~2080) ○
+  //  · 같은 시나리오의 점끼리 3px 선으로 이음 — 직선 회귀가 아님. 현재기후(2000~2019)와는 잇지 않고 2030 점에서 시작
+  //  · A·B 점이 가까운 기간은 x를 ±1년 띄우고, 값 이름표는 높은 쪽 위·낮은 쪽 아래
+  //  · 켜면 연도별 선은 흐리게(불투명도 0.3). 4개 모두 보기면 나머지 시나리오도 가는 추세선
+  const trendPeriods = periods.filter((p) => p.id !== 'cur');
+  const midYear = (p) => Math.floor((p.start + p.end) / 2);
+  const ySpan = (range.max - range.min) || 1;
+  const fmtV = (y) => (s.mode === 'abs' ? fmtNum(y) : fmtSigned(y));
+  let derivedShown = false;
+  let trendShown = false;
+  regions.forEach((r) => {
+    const po = periodOnly.includes(r);
+    if (!s.periodBars && !po) return;
+    const val = (m, p) => D.toMode(D.periodValue(el, m.id, p.id, r, periods), D.curValue(el, r), s.mode, v.pct);
+    const close = Object.fromEntries(trendPeriods.map((p) => {
+      const a = scenB ? val(scenA, p) : null;
+      const b2 = scenB ? val(scenB, p) : null;
+      return [p.id, D.isNum(a) && D.isNum(b2) && Math.abs(a - b2) < ySpan * 0.06];
+    }));
+    [scenA, ...(scenB ? [scenB] : []), ...others].forEach((m) => {
+      const thin = others.includes(m);
+      const off = thin ? 0 : m === scenA ? -1 : 1;
+      const data = trendPeriods.map((p) => {
+        const y = val(m, p);
+        return { x: midYear(p) + (close[p.id] ? off : 0), y: D.isNum(y) ? y : null, derived: !!p.derived };
+      });
+      if (!data.some((q) => q.y != null)) return;
+      trendShown = true;
+      if (data.some((q) => q.derived && q.y != null)) derivedShown = true;
+      datasets.push({
+        key: `trend-${m.id}-${r}`, data, borderColor: thin ? alpha(m.color, 0.85) : m.color, borderWidth: thin ? 2 : 3, borderDash: dash(r),
+        pointRadius: thin ? 3.5 : 5, pointHoverRadius: thin ? 3.5 : 5, pointBorderWidth: 2, pointBorderColor: m.color,
+        pointBackgroundColor: data.map((q) => (q.derived ? '#ffffff' : m.color)), order: 2, spanGaps: false, tension: 0, fill: false,
+      });
+      if (thin || r !== s.regionA) return;   // 값 이름표는 분석 지역의 A·B만
+      data.forEach((q, i) => {
+        if (q.y == null) return;
+        const p = trendPeriods[i];
+        const other = m === scenA ? (scenB ? val(scenB, p) : null) : val(scenA, p);
+        const up = !D.isNum(other) || q.y > other || (q.y === other && m === scenB);
+        ann[`tlab-${m.id}-${p.id}`] = {
+          type: 'label', xValue: q.x, yValue: q.y, content: [fmtV(q.y)], color: m.color, font: { size: 14, weight: '800' },
+          backgroundColor: 'rgba(255, 255, 255, 0.85)', borderRadius: 4, padding: { x: 3, y: 1 },
+          position: { x: 'center', y: up ? 'end' : 'start' }, yAdjust: up ? -8 : 8, drawTime: 'afterDatasetsDraw',
+        };
+      });
+    });
+  });
+  // 추세선이 있으면 현재기후 이름표는 아래로 (2030 점·값 이름표와 겹치지 않게), 아래 여유가 없을 때만 그대로
+  if (trendShown && ann.curLabel && curLabelY && ann.curLabel.position.y === 'end' && (curLabelY.min - range.min) / ySpan >= 0.1) {
+    Object.assign(ann.curLabel, { yValue: curLabelY.min, position: { ...ann.curLabel.position, y: 'start' }, yAdjust: 7 });
+  }
+  // 추세선을 켜면 연도별 선(현재기후·시나리오)은 흐리게 — 추세가 먼저 눈에 들어오게
+  if (s.periodBars && trendShown) {
+    datasets.forEach((d) => {
+      if (d.key.startsWith('A-')) d.borderColor = alpha(scenA.color, 0.3);
+      else if (d.key.startsWith('B-') && scenB) d.borderColor = alpha(scenB.color, 0.3);
+      else if (d.key.startsWith('oth-')) d.borderColor = alpha(manifest.scenarios.find((m) => d.key === `oth-${m.id}`)?.color ?? '#888888', 0.25);
+      else if (d.key.startsWith('cur-')) d.borderColor = alpha(C_CUR, 0.3);
+    });
+  }
+
+  return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown, periodOnly, trendShown };
 }
 
 /** 관측 자료 이름표: "관측 · 6개 지점 평균(지점값)" */
@@ -194,24 +221,24 @@ export function obsLabelText(series) {
 
 /* ───────────── 도구 줄·범례·안내 ───────────── */
 
-/** 그래프 안 왼쪽 위 작은 범례: 시나리오 색 점 + 이름, 20년 평균 가로선이 있을 때만 ▬ 20년 평균 */
+/** 그래프 안 왼쪽 위 작은 범례: 시나리오 색 점 + 이름, 추세선이 있을 때만 ●— 기간 평균 추세선(○ 앱 계산) */
 function innerLegendHTML(b) {
   const items = [b.scenA, ...(b.scenB ? [b.scenB] : []), ...b.others];
   let html = items.map((m) => `<span class="li"><span class="sdot" style="--c:${esc(m.color)}"></span>${esc(m.label)}</span>`).join('');
-  if (b.barsShown) {
-    html += `<span class="li"><span class="bar-sw" aria-hidden="true"></span>20년 평균</span>`;
-    if (b.derivedShown) html += `<span class="li"><span class="bar-sw light" aria-hidden="true"></span>20년 평균(${T.appCalc})</span>`;
+  if (b.trendShown) {
+    html += `<span class="li"><span class="tr-sw" aria-hidden="true"></span>기간 평균 추세선</span>`;
+    if (b.derivedShown) html += `<span class="li"><span class="pt-sw hollow" aria-hidden="true"></span>${T.appCalc}(2061~2080)</span>`;
   }
   return html;
 }
 
-/** 그래프 보기 옵션: 4개 모두 보기 · 과거 관측 보기(1912~) · 20년 평균선 표시 · ⓘ */
+/** 그래프 보기 옵션: 4개 모두 보기 · 과거 관측 보기(1912~) · 기간 평균 추세선 보기 · ⓘ */
 function toolsHTML(v, b) {
   const { s } = v;
   const series = v.stations?.series ?? {};
   const obsDisabled = !v.obsAllowed || !v.stations;
   const all4Disabled = !!s.regionB;
-  // 전국처럼 연도별 값이 없는 지역만 보일 때는 20년 평균이 유일한 자료라 늘 켜져 있음
+  // 전국처럼 연도별 값이 없는 지역만 보일 때는 기간 평균(추세선)이 유일한 자료라 늘 켜져 있음
   const barsFixed = b.periodOnly.length === b.regions.length;
   const opts = Object.entries(series).map(([k, val]) => `<option value="${esc(k)}" ${k === s.obsLayer.series ? 'selected' : ''}>${esc(val.name)}</option>`).join('');
   return `
@@ -221,7 +248,7 @@ function toolsHTML(v, b) {
       ${v.obsOn ? 'checked' : ''} ${obsDisabled ? 'disabled' : ''}><span>과거 관측 보기(1912~)</span></label>
     ${v.obsOn ? `<select data-change="obs-series" data-key="obs-series" aria-label="관측 자료 고르기">${opts}</select>` : ''}
     <label class="check${barsFixed ? ' disabled' : ''}"><input type="checkbox" data-change="period-bars" data-key="period-bars"
-      ${s.periodBars || barsFixed ? 'checked' : ''} ${barsFixed ? 'disabled' : ''}><span>20년 평균선 표시</span></label>
+      ${s.periodBars || barsFixed ? 'checked' : ''} ${barsFixed ? 'disabled' : ''}><span>기간 평균 추세선 보기</span></label>
     <button class="icon-btn" data-action="graph-info" data-key="graph-info" aria-haspopup="dialog" aria-label="그래프 읽는 법">ⓘ</button>`;
 }
 
@@ -242,8 +269,8 @@ function noteLine(v, b) {
   if (b.periodOnly.length === b.regions.length) parts.push(T.graphLinePeriodOnly);
   else {
     parts.push(b.obsSeries ? T.graphLineObs : T.graphLine);
-    if (b.barsShown) parts.push(s.year == null ? T.graphLineBarsSel : T.graphLineBars);
     if (s.year == null) parts.push(T.graphLineShade);
+    if (b.trendShown) parts.push(T.graphLineTrend);
   }
   if (s.obsLayer.on && !v.obsAllowed) parts.push(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`);
   if (s.regionB) parts.push('지역 비교 중에는 4개 모두를 쓸 수 없어요');

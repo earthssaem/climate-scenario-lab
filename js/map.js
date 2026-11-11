@@ -28,6 +28,75 @@ function hatchDefs(id) {
     <rect width="14" height="14" fill="${NA_FILL}"/><rect width="4" height="14" fill="#c4cad3"/></pattern></defs>`;
 }
 
+/* ───────────── 울릉도·독도 상자 준비 ─────────────
+   지도 파일의 섬(경북 경로의 작은 조각)은 실제 축척이라 화면에서 몇 px밖에 안 됨.
+   상자 안의 섬 조각을 떼어 내어 상자에서 크게 다시 그리고, 지역 경로에서는 지움 */
+function absSubpaths(d) {
+  const toks = String(d).match(/[MmLlHhVvZz]|-?\d+(?:\.\d+)?/g) ?? [];
+  const subs = [];
+  let x = 0; let y = 0; let sx = 0; let sy = 0; let cmd = null; let i = 0;
+  const num = () => Number(toks[i++]);
+  while (i < toks.length) {
+    if (/[A-Za-z]/.test(toks[i])) {
+      cmd = toks[i++];
+      if (cmd === 'Z' || cmd === 'z') { x = sx; y = sy; continue; }
+    }
+    if (cmd === 'M' || cmd === 'm') {
+      const a = num(); const b = num();
+      if (cmd === 'M') { x = a; y = b; } else { x += a; y += b; }
+      sx = x; sy = y; subs.push([[x, y]]); cmd = cmd === 'M' ? 'L' : 'l';
+    } else if (cmd === 'L' || cmd === 'l') {
+      const a = num(); const b = num();
+      if (cmd === 'L') { x = a; y = b; } else { x += a; y += b; }
+      subs[subs.length - 1].push([x, y]);
+    } else if (cmd === 'H' || cmd === 'h') { const a = num(); x = cmd === 'H' ? a : x + a; subs[subs.length - 1].push([x, y]); }
+    else if (cmd === 'V' || cmd === 'v') { const a = num(); y = cmd === 'V' ? a : y + a; subs[subs.length - 1].push([x, y]); }
+    else i += 1;   // 모르는 명령은 건너뜀
+  }
+  return subs.map((pts) => {
+    const xs = pts.map((q) => q[0]); const ys = pts.map((q) => q[1]);
+    return { pts, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+  });
+}
+const toAbsD = (sp) => `M${sp.pts.map((q) => `${q[0]} ${q[1]}`).join('L')}Z`;
+
+const geoPrep = new WeakMap();
+function prepGeo(geo) {
+  if (geoPrep.has(geo)) return geoPrep.get(geo);
+  const dOverride = {};
+  const insets = [];
+  (geo.insets ?? []).forEach((ins) => {
+    const [x, y, w, h] = ins.box;
+    const inBox = (sp) => sp.x0 >= x - 1 && sp.x1 <= x + w + 1 && sp.y0 >= y - 1 && sp.y1 <= y + h + 1;
+    for (const p of geo.paths) {
+      const subs = absSubpaths(p.d);
+      const isl = subs.filter(inBox);
+      if (!isl.length || isl.length === subs.length) continue;
+      // 섬 조각마다 가장 가까운 섬 이름(points)에 묶음
+      const groups = (ins.points ?? []).map((pt) => ({ name: pt.name, x: pt.x, y: pt.y, subs: [] }));
+      isl.forEach((sp) => {
+        const cx = (sp.x0 + sp.x1) / 2; const cy = (sp.y0 + sp.y1) / 2;
+        let best = null;
+        groups.forEach((g) => { const dd = Math.hypot(g.x - cx, g.y - cy); if (!best || dd < best.dd) best = { g, dd }; });
+        best?.g.subs.push(sp);
+      });
+      groups.forEach((g) => {
+        if (!g.subs.length) { g.tiny = true; return; }
+        g.x0 = Math.min(...g.subs.map((q) => q.x0)); g.y0 = Math.min(...g.subs.map((q) => q.y0));
+        g.x1 = Math.max(...g.subs.map((q) => q.x1)); g.y1 = Math.max(...g.subs.map((q) => q.y1));
+        g.tiny = Math.max(g.x1 - g.x0, g.y1 - g.y0) < 4;   // 너무 작으면(독도) 점으로
+        g.d = g.subs.map(toAbsD).join('');
+      });
+      dOverride[p.code] = subs.filter((sp) => !inBox(sp)).map(toAbsD).join('');
+      insets.push({ ins, owner: p.code, groups });
+      break;
+    }
+  });
+  const out = { paths: geo.paths.map((p) => (dOverride[p.code] ? { ...p, d: dOverride[p.code] } : p)), insets };
+  geoPrep.set(geo, out);
+  return out;
+}
+
 /**
  * 지도 한 장 (SVG 문자열)
  * o = { id, vals, color, blank, selA, selB, focusable, picking, aria, label(code), isProvince(code), name(code) }
@@ -39,20 +108,31 @@ function drawMap(geo, o) {
     const val = o.vals[c];
     return D.isNum(val) ? o.color(val) : `url(#${hatch})`;
   };
-  const byCode = Object.fromEntries(geo.paths.map((p) => [p.code, p]));
+  const G = prepGeo(geo);
+  const byCode = Object.fromEntries(G.paths.map((p) => [p.code, p]));
   const labelXY = (p) => (Array.isArray(p.label) ? p.label : D.isNum(p.labelX) ? [p.labelX, p.labelY] : null);
 
-  const regions = geo.paths.map((p) => `<path class="rg" d="${esc(p.d)}" fill="${fillOf(p.code)}" data-action="tile" data-code="${esc(p.code)}"
+  const regions = G.paths.map((p) => `<path class="rg" d="${esc(p.d)}" fill="${fillOf(p.code)}" data-action="tile" data-code="${esc(p.code)}"
     data-fig="${o.id}" role="button" tabindex="${o.focusable ? 0 : -1}" aria-label="${esc(o.label(p.code))}"/>`).join('');
 
-  // 울릉도·독도 상자: 테두리와 섬 이름 (독도는 지도에서 1px보다 작아 위치 동그라미를 함께 그림)
-  const insets = (geo.insets ?? []).map((ins) => {
+  // 울릉도·독도 상자: 얇은 점선 테두리(따로 옮겨 그린 지도), 섬은 실제 모양을 키워서(너무 작은 독도는 테두리 있는 점),
+  // 섬마다 이름, 상자 아래 "울릉도·독도" + "■ (경북)" — 섬 색 = 경북 값. 섬이나 상자를 누르면 경북 선택.
+  // 자리와 크기는 화면 px 기준으로 applyPixelScale(layoutInset)에서 정함
+  const insets = G.insets.map(({ ins, owner, groups }) => {
     const [x, y, w, h] = ins.box;
-    // 섬 위치 동그라미 + 상자 아래 이름 하나("울릉도·독도", 왼쪽→오른쪽 순서가 섬 위치와 같음)
-    // 상자가 작아 섬마다 이름을 달면 겹치므로 이름은 상자 밖에 한 번만 씀
-    const pts = (ins.points ?? []).map((pt) => `<circle class="pt" cx="${pt.x}" cy="${pt.y}" data-r="4"><title>${esc(pt.name)}</title></circle>`).join('');
-    const cap = `<text class="pt-lb" x="${x + w}" y="${y + h}" data-dy="11" text-anchor="end" dominant-baseline="central">${esc(ins.name)}</text>`;
-    return `<rect class="inset-box" x="${x}" y="${y}" width="${w}" height="${h}" rx="4"/>${pts}${cap}`;
+    const fill = fillOf(owner);
+    const sel = owner === o.selA || owner === o.selB ? ' sel' : '';
+    const tap = `data-action="tile" data-code="${esc(owner)}" data-fig="${o.id}"`;
+    const items = groups.map((g, i) => `${g.tiny
+      ? `<circle class="isl-dot${sel}" data-isl="${i}" cx="${g.x}" cy="${g.y}" r="4" fill="${fill}" ${tap}/>`
+      : `<path class="isl${sel}" data-isl="${i}" d="${esc(g.d)}" data-bb="${g.x0} ${g.y0} ${g.x1} ${g.y1}" fill="${fill}" ${tap}/>`}
+      <text class="pt-lb isl-name" data-isl-name="${i}" x="${g.x}" y="${g.y}" dominant-baseline="central">${esc(g.name)}</text>`).join('');
+    return `<g class="inset" data-box="${x} ${y} ${w} ${h}">
+      <rect class="inset-box" x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ${tap}/>${items}
+      <text class="pt-lb inset-cap" data-cap="1" x="${x + w}" y="${y + h}" text-anchor="end" dominant-baseline="central">${esc(ins.name)}</text>
+      <rect class="cap-sw" x="${x}" y="${y + h}" width="1" height="1" fill="${fill}"/>
+      <text class="pt-lb inset-cap" data-cap="2" x="${x + w}" y="${y + h}" text-anchor="end" dominant-baseline="central">(${esc(o.name(owner))})</text>
+    </g>`;
   }).join('');
 
   // 선택한 지역 경계: 흰 테두리를 먼저 깔고 굵은 선 (A·B 두 지도 모두)
@@ -60,7 +140,7 @@ function drawMap(geo, o) {
 
   // 이름표: 17개 시도 모두 늘 표시(시는 class "city"), 선택한 지역은 크고 굵게.
   // 겹치면 applyPixelScale에서 선택 > 시 > 도 순서로 자리를 잡고 뒤의 이름표를 비켜 둠
-  const labels = geo.paths.map((p) => {
+  const labels = G.paths.map((p) => {
     const xy = labelXY(p);
     if (!xy) return '';
     const sel = p.code === o.selA || p.code === o.selB;
@@ -79,6 +159,48 @@ function drawMap(geo, o) {
     <g class="sel">${outline(o.selA, 'sel-a')}${outline(o.selB, 'sel-b')}</g><g class="labels">${labels}</g>${badges}</svg>`;
 }
 
+/** 울릉도·독도 상자를 화면 px 기준으로 배치 (k = 지도 단위 / 화면 1px) — 오른쪽 위 모서리는 지도 파일의 상자 자리 그대로 */
+function layoutInset(g, k) {
+  const [bx, by, bw] = g.dataset.box.split(' ').map(Number);
+  const right = bx + bw; const top = by;
+  const pad = 4 * k; const gapX = 3 * k; const rowGap = 2 * k; const shapeH = 18 * k; const lineMin = 16 * k;
+  const rows = [...g.querySelectorAll('[data-isl]')].map((el) => ({ el, name: g.querySelector(`[data-isl-name="${el.dataset.isl}"]`) }));
+  rows.forEach((r) => {
+    if (r.el.tagName === 'path') {
+      const [x0, y0, x1, y1] = r.el.dataset.bb.split(' ').map(Number);
+      r.s = Math.max(1, shapeH / Math.max(1, y1 - y0));
+      r.w = (x1 - x0) * r.s; r.h = (y1 - y0) * r.s; r.cx = (x0 + x1) / 2; r.cy = (y0 + y1) / 2;
+    } else { r.w = 10 * k; r.h = 10 * k; }
+    r.tw = r.name?.getComputedTextLength() ?? 0;
+    r.rowW = r.w + gapX + r.tw;
+  });
+  // 첫 줄(울릉도)은 왼쪽, 다음 줄(독도)은 오른쪽으로 — 독도가 울릉도의 동남쪽이라는 느낌
+  const W = pad * 2 + Math.max(0, ...rows.map((r) => r.rowW));
+  const lineH = (r) => Math.max(r.h, lineMin);
+  const H = pad * 2 + rows.reduce((t, r) => t + lineH(r), 0) + rowGap * Math.max(0, rows.length - 1);
+  const left = right - W;
+  let yCur = top + pad;
+  rows.forEach((r, i) => {
+    const rowLeft = i === 0 ? left + pad : right - pad - r.rowW;
+    const midY = yCur + lineH(r) / 2;
+    if (r.el.tagName === 'path') r.el.setAttribute('transform', `translate(${rowLeft + r.w / 2} ${midY}) scale(${r.s}) translate(${-r.cx} ${-r.cy})`);
+    else { r.el.setAttribute('cx', rowLeft + r.w / 2); r.el.setAttribute('cy', midY); r.el.setAttribute('r', 5 * k); }
+    if (r.name) { r.name.setAttribute('x', rowLeft + r.w + gapX); r.name.setAttribute('y', midY); }
+    yCur += lineH(r) + rowGap;
+  });
+  const box = g.querySelector('.inset-box');
+  box.setAttribute('x', left); box.setAttribute('y', top); box.setAttribute('width', W); box.setAttribute('height', H); box.setAttribute('rx', 3 * k);
+  // 상자 아래 두 줄: "울릉도·독도" / "■ (경북)"
+  const c1 = g.querySelector('[data-cap="1"]'); const c2 = g.querySelector('[data-cap="2"]'); const sw = g.querySelector('.cap-sw');
+  const y1 = top + H + 3 * k + 8 * k; const y2 = y1 + 16 * k;
+  c1?.setAttribute('x', right); c1?.setAttribute('y', y1);
+  if (c2) {
+    c2.setAttribute('x', right); c2.setAttribute('y', y2);
+    const w2 = c2.getComputedTextLength();
+    sw?.setAttribute('x', right - w2 - 4 * k - 10 * k); sw?.setAttribute('y', y2 - 5 * k); sw?.setAttribute('width', 10 * k); sw?.setAttribute('height', 10 * k);
+  }
+}
+
 /** 화면 픽셀 크기로 보이게: 지도 축척에 맞춰 글자·동그라미 크기를 바꿈 */
 function applyPixelScale(root) {
   root.querySelectorAll('.map-svg').forEach((svg) => {
@@ -89,6 +211,7 @@ function applyPixelScale(root) {
     const k = Math.max(vb.width / r.width, r.height ? vb.height / r.height : 0);
     svg.style.setProperty('--u', k);
     svg.querySelectorAll('[data-r]').forEach((c) => c.setAttribute('r', Number(c.dataset.r) * k));
+    svg.querySelectorAll('g.inset').forEach((gi) => layoutInset(gi, k));
     // 픽셀 단위 위치 보정 (data-dx / data-dy)
     [['dx', 'x', 'cx'], ['dy', 'y', 'cy']].forEach(([d, attr, cattr]) => {
       svg.querySelectorAll(`[data-${d}]`).forEach((t) => {
@@ -110,7 +233,7 @@ function applyPixelScale(root) {
     const rank = (t) => (t.classList.contains('sel') ? 0 : t.classList.contains('city') ? 1 : 2);
     const area = (a, b) => Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) - 0.5 * k)
       * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) - 0.5 * k);
-    const placed = [...svg.querySelectorAll('text.pt-lb')].map((t) => t.getBBox());
+    const placed = [...svg.querySelectorAll('text.pt-lb, rect.inset-box, rect.cap-sw')].map((t) => t.getBBox());
     texts.sort((a, b) => rank(a) - rank(b)).forEach((t) => {
       const x0 = Number(t.dataset.lx); const y0 = Number(t.dataset.ly);
       const bb0 = t.getBBox();

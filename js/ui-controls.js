@@ -1,7 +1,7 @@
 // ui-controls.js — 상단 두 줄(기후요소 탭·표시 방식 / 시나리오·기간), 지도 머리의 분석 지역, 시나리오 선택 창, ⓘ 창
 // 화면은 상태(view.s)로만 그립니다. 버튼은 data-action 속성만 달고, 실제 처리는 main.js 한 곳에서 합니다.
 import {
-  T, SCEN_DESC, SCEN_INFO, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, derivedNote, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
+  T, SCEN_DESC, SCEN_INFO, curInfoSections, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, derivedNote, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
 } from './text.js';
 import * as D from './data.js';
 
@@ -74,6 +74,9 @@ export function renderCondRow(root, v) {
       const text = p.id === 'cur' ? `${p.label}(${p.start}~${p.end})` : p.label;
       const btn = `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(s.year == null && p.id === s.period)} ${off ? 'disabled' : ''}
         aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalcValue})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${esc(text)}</button>`;
+      if (p.id === 'cur') {
+        return `${btn}<button class="icon-btn period-info" data-action="note" data-id="cur" data-key="note-cur" aria-haspopup="dialog" aria-label="현재기후 설명">ⓘ</button>`;
+      }
       return p.derived ? `${btn}<button class="icon-btn period-info" data-action="note" data-id="${esc(p.id)}" data-key="note-${esc(p.id)}"
         aria-haspopup="dialog" aria-label="${esc(p.label)} 기간 설명">ⓘ</button>` : btn;
     }).join('')}</div>`;
@@ -254,6 +257,9 @@ function regionListHTML(v) {
 /** 짧은 ⓘ 설명 창 (2061~2080 기간, 지도 색) */
 function noteHTML(v) {
   const id = v.s.ui.note;
+  if (id === 'cur') {
+    return dialogShell('현재기후', curInfoSections(v.manifest.periods).map(([h, t]) => `<h3 class="note-h">${esc(h)}</h3><p>${esc(t)}</p>`).join(''), 'note');
+  }
   if (id === 'legend') return dialogShell('지도 색', `<p>${esc(legendNote(v))}</p>`, 'note');
   const p = v.manifest.periods.find((x) => x.id === id);
   if (!p) return '';
