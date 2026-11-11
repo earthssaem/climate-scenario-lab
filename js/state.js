@@ -6,7 +6,7 @@ export const DEFAULT_STATE = Object.freeze({
   scenA: 'ssp126',
   scenB: 'ssp585',       // null이면 시나리오 하나만 보기
   showAll4: false,       // 그래프에 4개 시나리오 모두 표시
-  mode: 'chg',           // 'abs' 절댓값 | 'chg' 현재 대비 변화량
+  mode: 'abs',           // 'abs' 값(기본) | 'chg' 현재 대비 변화량
   prcpUnit: 'mm',        // 강수량 변화량 단위: 'mm' | 'pct'
   regionA: '11',         // 서울 (첫 화면에서 연도별 선이 보이게. 전국은 기간값만 있음)
   regionB: null,         // 비교 지역

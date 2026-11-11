@@ -148,6 +148,7 @@ await test('상태: A·B 같은 시나리오 금지, 지역 비교 중 4개 모�
   st.actions.setYear(1960);
   assert.equal(st.get().year, null);
   // 관측을 쓸 수 없는 조건이 되면 1912~1999 연도 보기는 풀림
+  st.actions.setMode('chg');                            // 관측은 평균기온 + 변화량에서만 (기본은 값)
   st.actions.setObsOn(true);
   st.actions.setYear(1960);
   assert.equal(st.get().year, 1960);
