@@ -45,6 +45,10 @@ T.graphLineModel = '연도별 선은 기후모델 전망값이며, 그해의 실
 T.mapHint = '지도를 눌러 바꿀 수 있어요';
 T.appCalcValue = '앱 계산값';
 T.scenDiff = '두 시나리오 차이';
+T.curClimate = '현재기후';
+T.curBase = '변화량의 기준값';
+T.curNoScen = '현재기후 자료 — 시나리오와 무관';
+T.obsNoScen = '관측 자료 — 시나리오와 무관';
 T.p3Note = '이 기간은 기상청 공식 기간값이 없어, 연도별 전망값의 20년 평균을 앱이 계산한 값입니다.';
 T.graphLinePeriodOnly = '가로선 = 공식 20년 평균(진한 선 = 선택 기간)';
 T.barsFixed = '연도별 값이 없는 지역은 20년 평균이 유일한 자료라 늘 표시해요';

@@ -220,18 +220,6 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .chart-tools select { min-height: 44px; border: 1px solid #d5dbe3; border-radius: 10px; background: #fff; padding: 0 8px; font-size: 15px; max-width: 170px; }
 .chart-tools select:disabled { color: #a3a9b3; }
 .chart-tools .icon-btn { margin-left: 2px; }
-.year-strip { border: 1px solid var(--line-2); border-radius: 12px; padding: 4px 6px 6px 12px; background: #fff; box-shadow: 0 2px 8px rgba(28, 35, 48, 0.06); font-size: 15px; flex: none; }
-.year-strip .ys-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; }
-.year-strip .yr { font-size: 17px; }
-.year-strip .kind { font-size: 14px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; }
-.year-strip .yi { display: inline-flex; align-items: center; gap: 5px; }
-.year-strip .yi .nm { color: var(--ink-2); }
-.year-strip .yi.diff .nm { color: var(--muted); }
-.year-strip .yi b { font-variant-numeric: tabular-nums; }
-.year-strip .grp { font-weight: 800; }
-.year-strip .msg { color: var(--muted); }
-.year-strip .x { margin-left: auto; min-width: 44px; min-height: 44px; border: 0; background: transparent; font-size: 16px; border-radius: 8px; }
-.year-strip .fc { font-size: 14px; color: var(--ink-2); }
 .obs-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--obs); display: inline-block; }
 .chart-wrap { position: relative; flex: 1; min-height: 220px; }
 .chart-wrap canvas { cursor: pointer; }
@@ -246,21 +234,34 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .graph-note b { color: var(--ink-2); }
 
 /* ───── 핵심 수치 줄 ───── */
-.keybar { flex: none; margin: var(--gap) var(--gap) 0; padding: 8px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); display: grid; gap: 4px; }
-.kb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 28px; min-height: 48px; }
-.kb-region { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 16px; min-width: 76px; }
-.kb-item { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 2px 7px; }
-.kb-item > * { white-space: nowrap; }
-.kb-item .ab { align-self: center; display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 6px; background: var(--soft); border: 1px solid var(--line-2); font-size: 14px; font-weight: 800; }
-.kb-item .sdot { align-self: center; }
-.kb-calc { align-self: center; font-size: 14px; font-weight: 600; color: var(--muted); border: 1px solid var(--line-2); border-radius: 6px; padding: 0 6px; white-space: nowrap; }
-.kb-item .lbl { font-size: 16px; font-weight: 700; color: var(--ink-2); }
-.kb-item .big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1.1; }
-.kb-item .big .na, .kb-item .big.na { font-size: 16px; font-weight: 600; color: var(--muted); }
-.kb-item .small { font-size: 16px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.kb-item.diff .lbl { color: var(--muted); }
-.mock-badge { align-self: center; font-size: 14px; font-weight: 800; color: var(--warn-ink); background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 0 6px; line-height: 1.5; }
-.details-btn { margin-left: auto; min-height: 44px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 12px; background: #fff; font-weight: 700; font-size: 15px; white-space: nowrap; }
+/* 숫자 카드: 오른쪽 그래프 패널의 제목 바로 아래 (머리 줄 = 기간 또는 연도, 그 아래 A · B · 두 시나리오 차이) */
+.keybar { flex: none; }
+.kb-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 4px 6px 8px 12px; }
+.kb-rows { grid-column: 1 / -1; display: grid; gap: 2px; min-width: 0; }
+/* [기간별 표]: 머리 줄 오른쪽 끝. 보이는 높이 36px, 누르는 영역은 ::after로 44px */
+.kb-card .details-btn { position: relative; min-height: 36px; padding: 0 10px; font-size: 14px; }
+.kb-card .details-btn::after { content: ""; position: absolute; inset: -4px 0; }
+.kb-when { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: 14px; font-weight: 700; color: var(--muted); line-height: 1.3; }
+.kb-obs { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); font-weight: 600; }
+.kb-row { display: grid; gap: 0; }
+.kb-region { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; margin-top: 2px; }
+.kb-region .badge { width: 20px; height: 20px; font-size: 13px; }
+.kb-stats { display: flex; flex-wrap: wrap; gap: 4px 24px; align-items: flex-start; }
+.kb-item { display: grid; min-width: 0; flex: 0 1 auto; }
+.kb-item.wide { flex: 1 1 260px; }
+.kb-lbl { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 700; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kb-item.diff .kb-lbl { color: var(--muted); }
+.kb-lbl .ab { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 4px; background: #fff; border: 1px solid var(--line-2); font-size: 14px; font-weight: 800; line-height: 1; }
+/* 큰 숫자 아래에 작은 숫자(괄호) — 칸이 좁아도 겹치지 않게. 현재기후 한 값(넓은 칸)은 한 줄로 이어서 */
+.kb-val { display: grid; justify-items: start; }
+.kb-item.wide .kb-val { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.kb-val .big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 1.12; white-space: nowrap; }
+.kb-val .big.na { font-size: 16px; font-weight: 600; color: var(--muted); line-height: 1.6; }
+.kb-val .yr { font-size: 20px; font-weight: 800; white-space: nowrap; }
+.kb-val .small { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.kb-msg { font-size: 15px; font-weight: 600; color: var(--ink-2); line-height: 1.35; padding: 4px 0; }
+.kb-calc { font-size: 14px; font-weight: 600; color: var(--muted); border: 1px solid var(--line-2); border-radius: 6px; padding: 0 6px; white-space: nowrap; background: #fff; }
+.details-btn { flex: none; min-height: 44px; padding: 0 12px; border: 1px solid #d5dbe3; border-radius: 10px; background: #fff; font-weight: 700; font-size: 15px; white-space: nowrap; }
 
 /* ───── 펼쳐 보기: 기간별 표 ───── */
 .details { margin: var(--gap); }
@@ -381,7 +382,7 @@ footer .hub:hover{color:var(--ink);text-decoration-color:currentColor}
   .map-card, .chart-card { min-height: 0; }
   .map-box { display: flex; }
   .map-box .map-svg { height: 100%; width: 100%; }
-  .keybar { margin-bottom: var(--gap); }
+  .stage { padding-bottom: var(--gap); }
 }
 
 /* ───── 세로 화면·좁은 화면: 띠 → 머리 막대 → 공통 조건 → 지도 → 그래프 → 핵심 수치 → 접힌 표 ───── */
@@ -420,8 +421,8 @@ footer .hub:hover{color:var(--ink);text-decoration-color:currentColor}
   .seg button { padding: 0 10px; min-width: 44px; font-size: 15px; }
   .period-tabs button { padding: 0 10px; }
   .chart-wrap { height: 280px; }
-  .kb-item .big { font-size: 26px; }
-  .kb-row { gap: 4px 18px; }
+  .kb-val .big { font-size: 26px; }
+  .kb-stats { gap: 4px 16px; }
   .so-curve { width: 124px; }
   .so-curve .mini { width: 124px; height: auto; }
 }

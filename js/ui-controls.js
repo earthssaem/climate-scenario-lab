@@ -63,13 +63,14 @@ function scenButton(v, slot) {
 export function renderCondRow(root, v) {
   const { s, manifest } = v;
   if (!manifest) { root.innerHTML = ''; return; }
-  const period = s.year != null
-    ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>`
-    : `<div class="period-tabs" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
+  // 기간 버튼은 연도 보기 중에도 그대로 두고, "2014년 보기 ✕"를 옆에 덧붙임 (기간을 누르면 연도 보기가 풀림)
+  const yearChip = s.year != null
+    ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>` : '';
+  const period = `<div class="period-tabs" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
       const off = p.derived && !v.derivedOk(p);
       // 현재는 기간을 화면에 바로 "현재(2000~2019)", 2061~2080은 별표 대신 눌러서 여는 ⓘ
       const text = p.id === 'cur' ? `${p.label}(${p.start}~${p.end})` : p.label;
-      const btn = `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(p.id === s.period)} ${off ? 'disabled' : ''}
+      const btn = `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(s.year == null && p.id === s.period)} ${off ? 'disabled' : ''}
         aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalcValue})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${esc(text)}</button>`;
       return p.derived ? `${btn}<button class="icon-btn period-info" data-action="note" data-id="${esc(p.id)}" data-key="note-${esc(p.id)}"
         aria-haspopup="dialog" aria-label="${esc(p.label)} 기간 설명">ⓘ</button>` : btn;
@@ -81,7 +82,7 @@ export function renderCondRow(root, v) {
     </div>
     <div class="cg" role="group" aria-labelledby="lblPeriod">
       <span class="ctl-label" id="lblPeriod">기간</span>
-      ${period}
+      ${period}${yearChip}
     </div>`;
 }
 

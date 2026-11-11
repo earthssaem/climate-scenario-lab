@@ -150,7 +150,11 @@ function handle(action, ds, el, evt) {
     case 'clear-year': A.closeDialogs(); return A.setYear(null);
     case 'map-view': return A.setMapView(ds.view);
     case 'map-tab': return A.setMapTab(ds.tab);
-    case 'toggle-details': return A.toggleDetails();
+    case 'toggle-details':
+      A.toggleDetails();
+      // 숫자 카드는 위쪽, 표는 지도·그래프 아래에 펼쳐지므로 펼치면 표로 내려 줌
+      if (store.get().ui.details) requestAnimationFrame(() => requestAnimationFrame(() => $('details')?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+      return;
     case 'retry-element': return ensureElement(store.get().element);
     case 'retry-base':
       quiet(D.loadJSON(D.PATHS.geo));

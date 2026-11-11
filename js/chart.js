@@ -123,6 +123,7 @@ function build(v) {
       });
     });
   });
+  let curLabelY = null;
   // 현재기후 연도별 선(진한 회색)에 이름표 — 관측 점선과 헷갈리지 않게
   const lineRegions = regions.filter((r) => !periodOnly.includes(r));
   if (lineRegions.length && curRange) {
@@ -141,6 +142,7 @@ function build(v) {
         const nearMid = near.length ? near.reduce((t, x) => t + x, 0) / near.length : curMid;
         above = nearMid < curMid;   // 전망이 현재보다 위로 가면 이름표는 아래에
       }
+      curLabelY = { min: Math.min(...cv), max: Math.max(...cv) };
       ann.curLabel = {
         type: 'label', xValue: leftward ? curRange[1] + 0.5 : curRange[0], yValue: above ? Math.max(...cv) : Math.min(...cv),
         position: { x: leftward ? 'end' : 'start', y: above ? 'end' : 'start' }, yAdjust: above ? -7 : 7,
@@ -170,6 +172,17 @@ function build(v) {
     regions, scenarios: manifest.scenarios.map((m) => m.id), mode: s.mode, pct: v.pct, periods, extra,
     zeroFloor: s.mode === 'abs' && v.elMeta.kind === 'days',
   }) ?? { min: 0, max: 1, step: 1 };
+  // 현재기후 이름표가 그래프 위·아래 끝에서 잘리지 않게: 그쪽 여유가 작으면 반대쪽으로 옮김
+  if (ann.curLabel && curLabelY) {
+    const span = (range.max - range.min) || 1;
+    const roomBelow = (curLabelY.min - range.min) / span;
+    const roomAbove = (range.max - curLabelY.max) / span;
+    const isAbove = ann.curLabel.position.y === 'end';
+    const up = isAbove ? !(roomAbove < 0.1 && roomBelow >= 0.1) : roomBelow < 0.1 && roomAbove >= 0.1;
+    if (up !== isAbove) {
+      Object.assign(ann.curLabel, { yValue: up ? curLabelY.max : curLabelY.min, position: { ...ann.curLabel.position, y: up ? 'end' : 'start' }, yAdjust: up ? -7 : 7 });
+    }
+  }
 
   return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown, periodOnly, barsShown };
 }
@@ -239,54 +252,13 @@ function noteLine(v, b) {
   return b.periodOnly.length === b.regions.length ? line : `${line}. ${T.graphLineModel}`;
 }
 
-/* ───────────── 연도 정보 줄 (그래프 위쪽 가장자리) ───────────── */
-
-function yearStripHTML(v, b) {
-  const { s, el, elMeta } = v;
-  const y = s.year;
-  const nm = (c) => v.regionMeta(c)?.short ?? c;
-  const src = D.yearSource(el, y);
-  const kind = src === 'projection' ? '전망 · 5개 모델 평균' : src === 'current' ? '현재기후 · 면적 평균' : b.obsSeries ? '관측' : '';
-  const fmtV = (val) => (s.mode === 'abs' ? withUnit(fmtNum(val), elMeta.unit) : withUnit(fmtSigned(val), unitOf(elMeta, v.pct, 'change')));
-  const item = (dot, label, val, cls = '') => `<span class="yi ${cls}">${dot}<span class="nm">${label}</span><b>${val}</b></span>`;
-  const dot = (c) => `<span class="sdot" style="--c:${esc(c)}"></span>`;
-  let body = '';
-  if (src === 'none') {
-    const cr = D.blockRange(el, 'current');
-    body += `<span class="msg">${cr && y > cr[1] ? `${y}년은 시나리오·현재기후 자료에 없는 해입니다.` : '이 연도에는 시도 자료가 없습니다.'}</span>`;
-  } else {
-    b.regions.forEach((r) => {
-      const base = D.curValue(el, r);
-      const pre = b.compare ? `<span class="grp">${esc(nm(r))}</span>` : '';
-      if (b.periodOnly.includes(r)) { body += `${pre}<span class="msg">${esc(periodOnlyNote(nm(r)))}</span>`; return; }
-      if (src === 'current') {
-        body += pre + item(`<span class="sdot" style="--c:${C_CUR}"></span>`, '현재기후', fmtV(D.toMode(D.regionYearValue(el, s.scenA, r, y), base, s.mode, v.pct)));
-        return;
-      }
-      const a = D.toMode(D.regionYearValue(el, s.scenA, r, y), base, s.mode, v.pct);
-      body += pre + item(dot(b.scenA.color), esc(b.scenA.label), fmtV(a));
-      if (b.scenB) {
-        const bb = D.toMode(D.regionYearValue(el, s.scenB, r, y), base, s.mode, v.pct);
-        body += item(dot(b.scenB.color), esc(b.scenB.label), fmtV(bb));
-        body += item('', `B−A <span class="calc">(${T.appCalc})</span>`, fmtDiff(D.diffBA(a, bb), elMeta, v.pct), 'diff');
-      }
-    });
-  }
-  if (b.obsSeries) {
-    const o = D.obsYearValue(b.obsSeries, y);
-    body += item('<span class="obs-dot"></span>', esc(obsLabelText(b.obsSeries)), D.isNum(o) ? withUnit(fmtSigned(o), '℃') : '자료 없음');
-  }
-  return `<div class="ys-row"><b class="yr">${y}년</b>${kind ? `<span class="kind">${kind}</span>` : ''}${body}
-      <button class="x" data-action="clear-year" data-key="ys-close" aria-label="연도 보기 끝내기">✕</button></div>
-    ${src === 'projection' ? `<p class="fc">${T.notWeather}</p>` : ''}`;
-}
-
 /* ───────────── 그리기 ───────────── */
 
 function skeleton(root) {
   root.innerHTML = `
-    <div class="chart-head"><h2 class="chart-title" id="chartTitle"></h2><div class="chart-tools"></div></div>
-    <div class="year-strip" hidden></div>
+    <div class="chart-head"><h2 class="chart-title" id="chartTitle"></h2></div>
+    <section class="keybar" id="keybar" aria-label="핵심 수치" aria-live="polite"></section>
+    <div class="chart-tools"></div>
     <div class="chart-wrap"><canvas role="img" aria-label="연도별 값 그래프"></canvas><div class="in-legend"></div></div>
     <p class="graph-note"></p>`;
   root.dataset.built = '1';
@@ -320,10 +292,6 @@ export function renderChart(root, v, actions) {
   wrap.classList.toggle('is-mock', !!v.mock);
   root.querySelector('.in-legend').innerHTML = innerLegendHTML(b);
 
-  // 연도 정보 줄 (그래프 위쪽 가장자리, 그래프를 가리지 않음)
-  const strip = root.querySelector('.year-strip');
-  if (s.year != null) { strip.hidden = false; strip.innerHTML = yearStripHTML(v, b); }
-  else { strip.hidden = true; strip.innerHTML = ''; }
 
   const yUnit = s.mode === 'abs' ? v.elMeta.unit : unitOf(v.elMeta, v.pct, 'change');
   const yTitle = `${yUnit} (${modeName(s.mode, v.pct)})`;

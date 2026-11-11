@@ -2,8 +2,8 @@
 // 데이터에 나타난 값을 그대로 보여 줍니다. 증가·감소 같은 결론 문구를 자동으로 붙이지 않습니다.
 import * as D from './data.js';
 import { rangeOf } from './scales.js';
-import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedShort } from './text.js';
-import { chartTitle } from './chart.js';
+import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedShort, periodOnlyNote } from './text.js';
+import { chartTitle, obsLabelText } from './chart.js';
 
 function cellButton(pid, enabled, big, small, label) {
   return `<button class="cell" data-action="period" data-id="${esc(pid)}" ${enabled ? '' : 'disabled'}
@@ -172,13 +172,17 @@ function barsHTML(v, width) {
     <svg class="bars-svg" viewBox="0 0 ${W} ${H}" role="group" aria-label="기간별 시나리오 차이 막대그래프">${g}</svg>${legend}`;
 }
 
-/* ───────────── 핵심 수치 줄 ───────────── */
-
+/* ───────────── 숫자 카드 (오른쪽 그래프 패널의 제목 바로 아래) ─────────────
+   머리 줄: 무엇의 값인지(기간 20년 평균 또는 연도) — 예전 그래프 위 연도 정보 줄을 여기에 합침
+   현재기후(현재 기간, 2000~2019년)는 시나리오와 무관하므로 A·B로 나누지 않고 한 값만 */
 export function renderKeybar(root, v) {
+  if (!root) return;
   const { s, el, elMeta, manifest } = v;
   if (!manifest || !elMeta) return;
+  const detailsBtn = `<button class="details-btn" data-action="toggle-details" data-key="details" aria-expanded="${s.ui.details}" aria-controls="details">
+        ${s.ui.details ? '▴' : '▾'} ${T.details}</button>`;
   if (!el) {
-    root.innerHTML = `<div class="kb-row"><span class="pill">${v.elStatus === 'error' ? T.loadFail : `<span class="spinner"></span>${T.loading}`}</span></div>`;
+    root.innerHTML = `<div class="kb-card"><div class="kb-rows"><span class="pill">${v.elStatus === 'error' ? T.loadFail : `<span class="spinner"></span>${T.loading}`}</span></div></div>`;
     return;
   }
   const periods = manifest.periods;
@@ -186,47 +190,92 @@ export function renderKeybar(root, v) {
   const compare = regions.length === 2;
   const A = v.scenMeta(s.scenA);
   const B = s.scenB ? v.scenMeta(s.scenB) : null;
-  const pMeta = s.year == null ? v.periodMeta(s.period) : null;
-  const ySrc = s.year != null ? D.yearSource(el, s.year) : null;
-  const noDiff = (pMeta && pMeta.id === 'cur') || ySrc === 'current';
-  const calc = pMeta?.derived ? `<span class="kb-calc">${T.appCalcValue}</span>` : '';
+  const year = s.year;
+  const pMeta = year == null ? v.periodMeta(s.period) : null;
+  const src = year != null ? D.yearSource(el, year) : null;
+  const curLike = (pMeta && pMeta.id === 'cur') || src === 'current';
   const badge = v.mock ? `<span class="mock-badge">${T.mockBadge}</span>` : '';
+  const unit = elMeta.unit;
   const chgUnit = unitOf(elMeta, v.pct, 'change');
   const nm = (c) => esc(v.regionMeta(c)?.short ?? c);
+  const obsSeries = year != null && v.obsOn && v.stations ? v.stations.series?.[s.obsLayer.series] : null;
+  const obsVal = obsSeries ? D.obsYearValue(obsSeries, year) : null;
+  const r1 = (x) => Math.round(x * 10) / 10;
 
-  const raw = (scen, r) => (s.year != null ? D.regionYearValue(el, scen, r, s.year) : D.periodValue(el, scen, s.period, r, periods));
-  const missing = (r) => (s.year != null && !D.hasAnnual(el, r) ? T.noYearValue : T.noData);
+  // 머리 줄
+  let when;
+  if (pMeta) when = `${esc(pMeta.label)}(${pMeta.start}~${pMeta.end}) · 20년 평균`;
+  else if (src === 'projection') when = `${year}년 · 기후모델 전망(5개 모델 평균)`;
+  else if (src === 'current') when = `${year}년 · 현재기후`;
+  else when = obsSeries ? `${year}년 · 관측` : `${year}년`;
+  const calc = pMeta?.derived ? `<span class="kb-calc">${T.appCalcValue}</span>` : '';
+  const obsExtra = obsSeries && src !== 'none'
+    ? `<span class="kb-obs"><span class="obs-dot"></span>${esc(obsLabelText(obsSeries))} ${D.isNum(obsVal) ? withUnit(fmtSigned(obsVal), '℃') : T.noData}</span>` : '';
 
-  const item = (slot, m, r) => {
+  const cell = (lbl, val, cls = '') => `<div class="kb-item${cls ? ` ${cls}` : ''}">${lbl}<span class="kb-val">${val}</span></div>`;
+  const lblScen = (slot, m) => `<span class="kb-lbl"><span class="ab">${slot}</span><span class="sdot" style="--c:${esc(m.color)}"></span>${esc(m.label)}</span>`;
+  const lblText = (t) => `<span class="kb-lbl">${t}</span>`;
+  const noteCell = (text) => cell(lblText(T.scenDiff), `<span class="kb-msg">${text}</span>`, 'diff');
+  const raw = (scen, r) => (year != null ? D.regionYearValue(el, scen, r, year) : D.periodValue(el, scen, s.period, r, periods));
+  const missing = (r) => (year != null && !D.hasAnnual(el, r) ? T.noYearValue : T.noData);
+
+  const scenCell = (slot, m, r) => {
     const value = raw(m.id, r);
-    const change = D.toMode(value, D.curValue(el, r), 'chg', v.pct);
-    let big;
-    let small;
-    if (!D.isNum(value)) { big = `<span class="na">${missing(r)}</span>`; small = ''; }
-    else {
-      const valTxt = withUnit(fmtNum(value), elMeta.unit);
-      const chgTxt = withUnit(fmtSigned(change), chgUnit);
-      [big, small] = s.mode === 'abs' ? [valTxt, chgTxt] : [chgTxt, valTxt];
-      if (noDiff && s.mode !== 'abs') small = valTxt;
-    }
-    return `<span class="kb-item"><span class="ab">${slot}</span><span class="sdot" style="--c:${esc(m.color)}"></span><span class="lbl">${esc(m.label)}</span>
-      <b class="big">${big}</b>${small ? `<span class="small">(${small})</span>` : ''}${D.isNum(value) ? badge : ''}</span>`;
+    if (!D.isNum(value)) return cell(lblScen(slot, m), `<b class="big na">${missing(r)}</b>`);
+    const valTxt = withUnit(fmtNum(value), unit);
+    const chgTxt = withUnit(fmtSigned(D.toMode(value, D.curValue(el, r), 'chg', v.pct)), chgUnit);
+    const [big, small] = s.mode === 'abs' ? [valTxt, chgTxt] : [chgTxt, valTxt];
+    return cell(lblScen(slot, m), `<b class="big">${big}</b><span class="small">(${small})</span>${badge}`);
   };
-  const diffItem = (r) => {
-    if (!B) return '';
-    if (noDiff) return `<span class="kb-item diff"><span class="lbl">${T.scenDiff}</span><b class="big na">${T.curNoDiffShort}</b></span>`;
+  const diffCell = (r) => {
     const a = D.toMode(raw(s.scenA, r), D.curValue(el, r), s.mode, v.pct);
     const b = D.toMode(raw(s.scenB, r), D.curValue(el, r), s.mode, v.pct);
     const d = D.diffBA(a, b);
-    return `<span class="kb-item diff"><span class="lbl">${T.scenDiff}</span><b class="big">${D.isNum(d) ? fmtDiff(d, elMeta, v.pct) : `<span class="na">${missing(r)}</span>`}</b>${D.isNum(d) ? badge : ''}</span>`;
+    return cell(lblText(T.scenDiff), D.isNum(d) ? `<b class="big">${fmtDiff(d, elMeta, v.pct)}</b>${badge}` : `<b class="big na">${missing(r)}</b>`, 'diff');
+  };
+  // 현재기후: 한 값만. 연도면 "2014년 15.5일 (현재기후 평균 31.2일보다 15.7일 적음)" — 변화량 모드여도 같은 형식
+  const curCell = (r) => {
+    const base = D.curValue(el, r);
+    const value = year != null ? D.regionYearValue(el, s.scenA, r, year) : base;
+    const lbl = lblText(`${T.curClimate}${compare ? '' : ` · ${nm(r)}`}`);
+    if (!D.isNum(value)) return cell(lbl, `<b class="big na">${missing(r)}</b>`, 'wide');
+    const valTxt = withUnit(fmtNum(value), unit);
+    if (year == null) return cell(lbl, `<b class="big">${valTxt}</b><span class="small">(${T.curBase})</span>${badge}`, 'wide');
+    let cmp = '';
+    if (D.isNum(base)) {
+      const d = r1(r1(value) - r1(base));   // 화면에 보이는 두 수의 차이와 같게
+      const word = d > 0 ? (elMeta.kind === 'temp' ? '높음' : '많음') : (elMeta.kind === 'temp' ? '낮음' : '적음');
+      cmp = d === 0 ? `현재기후 평균(${withUnit(fmtNum(base), unit)})과 같음`
+        : `현재기후 평균 ${withUnit(fmtNum(base), unit)}보다 ${withUnit(fmtNum(Math.abs(d)), unit)} ${word}`;
+    }
+    return cell(lbl, `<b class="yr">${year}년</b> <b class="big">${valTxt}</b>${cmp ? ` <span class="small">(${cmp})</span>` : ''}${badge}`, 'wide');
+  };
+  const noneCell = (r) => (obsSeries
+    ? cell(lblText(`<span class="obs-dot"></span>${esc(obsLabelText(obsSeries))}`), D.isNum(obsVal)
+      ? `<b class="yr">${year}년</b> <b class="big">${withUnit(fmtSigned(obsVal), '℃')}</b><span class="small">(지점별 2000~2019 평균 대비)</span>` : `<b class="big na">${T.noData}</b>`, 'wide')
+    : cell(lblText(nm(r)), `<b class="big na">${T.noData}</b>`, 'wide'));
+
+  const rowFor = (r, i) => {
+    let cells;
+    if (year != null && !D.hasAnnual(el, r)) {
+      cells = cell(lblText(nm(r)), `<span class="kb-msg">${esc(periodOnlyNote(v.regionMeta(r)?.short ?? r))}</span>`, 'wide') + (B ? noteCell('—') : '');
+    } else if (curLike) {
+      cells = curCell(r) + (B ? noteCell(T.curNoScen) : '');
+    } else if (year != null && src === 'none') {
+      cells = noneCell(r) + (B ? noteCell(obsSeries ? T.obsNoScen : T.noData) : '');
+    } else {
+      cells = scenCell('A', A, r) + (B ? scenCell('B', B, r) + diffCell(r) : '');
+    }
+    return `<div class="kb-row">${compare ? `<span class="kb-region"><span class="badge${i ? ' b' : ''}">${i ? 'B' : 'A'}</span>${nm(r)}</span>` : ''}
+      <div class="kb-stats">${cells}</div></div>`;
   };
 
-  root.innerHTML = regions.map((r, i) => `<div class="kb-row">
-      ${compare ? `<span class="kb-region"><span class="badge${i ? ' b' : ''}">${i ? 'B' : 'A'}</span>${nm(r)}</span>` : ''}
-      ${item('A', A, r)}${B ? item('B', B, r) : ''}${diffItem(r)}${calc}
-      ${i === 0 ? `<button class="details-btn" data-action="toggle-details" data-key="details" aria-expanded="${s.ui.details}" aria-controls="details">
-        ${s.ui.details ? '▴' : '▾'} ${T.details}</button>` : ''}
-    </div>`).join('');
+  // 머리 줄(무엇의 값인지) 오른쪽 끝에 [기간별 표], 그 아래 숫자 줄은 카드 폭 전체를 씀
+  root.innerHTML = `<div class="kb-card">
+    <div class="kb-when">${when}${calc}${obsExtra}</div>
+    ${detailsBtn}
+    <div class="kb-rows">${regions.map(rowFor).join('')}</div>
+  </div>`;
 }
 
 /* ───────────── 펼쳐 보기: 기간별 표 + 차이 막대 + 보조 분석 자리 ───────────── */
