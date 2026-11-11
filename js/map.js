@@ -241,8 +241,8 @@ export function renderMap(root, v) {
     ${anyNA || clamped ? `<span class="lg-extra">${anyNA ? `<span><span class="hatch-sw"></span>${T.noData}</span>` : ''}${clamped ? `<span>${T.clampNote}</span>` : ''}</span>` : ''}
   </div>`;
 
-  const tabs = useTabs ? `<div class="map-tabs" role="group" aria-label="지도 고르기">
-    ${figs.map((f) => `<button class="chip" data-action="map-tab" data-tab="${f.key}" data-key="tab-${f.key}" aria-pressed="${f.key === visible[0].key}">
+  const tabs = useTabs ? `<div class="seg map-tabs" role="group" aria-label="지도 고르기">
+    ${figs.map((f) => `<button data-action="map-tab" data-tab="${f.key}" data-key="tab-${f.key}" aria-pressed="${f.key === visible[0].key}">
       ${f.key} · ${esc(f.scen.label)}</button>`).join('')}</div>` : '';
 
   const viewSeg = `<div class="seg" role="group" aria-label="지도 보기">

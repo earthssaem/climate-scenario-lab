@@ -89,40 +89,37 @@ function build(v) {
     const pm = v.periodMeta(s.period);
     if (pm) ann.sel = { type: 'box', xMin: pm.start - 0.5, xMax: pm.end + 0.5, backgroundColor: 'rgba(28, 35, 48, 0.07)', borderWidth: 0, drawTime: 'beforeDatasetsDraw' };
   }
-  // 20년 평균 가로선
-  //  · 「20년 평균」 켬: 모든 기간(전반기·중반기·2061~2080·후반기)의 A·B 가로선
-  //  · 끔(기본): 지금 선택한 기간(음영)의 A·B만 얇고 반투명하게 — 지도에 칠한 값이 그래프의 어느 값인지 이어 줌.
-  //    연도 보기에서는 지도가 20년 평균이 아니므로 이것도 숨김
-  //  · 연별 선이 없는 지역(전국)은 이 막대가 유일한 자료라 늘 모두 그림
+  // 20년 평균 가로선 — 「20년 평균선 표시」를 켰을 때만
+  //  · 켬: 모든 기간(전반기·중반기·2061~2080·후반기)의 A·B 가로선. 선택한 기간(음영)은 또렷하게, 다른 기간은 옅고 가늘게
+  //  · 끔(기본): 가로선을 하나도 그리지 않음 (연도별 전망 선만). 선택 기간 음영·지도·핵심 수치는 그대로
+  //  · 연별 선이 없는 지역(전국)은 이 가로선이 유일한 자료라 늘 그림
   const barScens = [scenA, ...(scenB ? [scenB] : [])];
   const selPeriod = s.year == null ? s.period : null;
   let derivedShown = false;
-  let allBarsShown = false;
-  let selBarsShown = false;
+  let barsShown = false;
   periods.filter((p) => p.id !== 'cur').forEach((p) => {
     regions.forEach((r) => {
       const po = periodOnly.includes(r);
-      const full = s.periodBars || po;
-      const faint = !full;
-      if (faint && p.id !== selPeriod) return;
+      if (!s.periodBars && !po) return;
+      const sel = p.id === selPeriod;
       // 4개 모두: 연별 선이 없는 지역은 나머지 시나리오를 가는 20년 평균 막대로 추가
       const scens = po ? [...barScens, ...others] : barScens;
       scens.forEach((m) => {
         const y = D.toMode(D.periodValue(el, m.id, p.id, r, periods), D.curValue(el, r), s.mode, v.pct);
         if (!D.isNum(y)) return;
-        if (full) { allBarsShown = allBarsShown || s.periodBars; if (p.derived) derivedShown = true; } else selBarsShown = true;
+        barsShown = true;
+        if (p.derived) derivedShown = true;
         const thin = others.includes(m);
-        if (full) {
-          // 흰 테두리를 먼저 깔아 같은 색 선 위에서도 막대가 보이게
-          ann[`halo-${p.id}-${r}-${m.id}`] = {
-            type: 'line', xMin: p.start - 0.3, xMax: p.end + 0.3, yMin: y, yMax: y,
-            borderColor: 'rgba(255,255,255,0.95)', borderWidth: thin ? 6 : 9, borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
-          };
-        }
+        const w = thin ? 2 : sel ? 4 : 2.5;
+        const a = (sel ? 1 : 0.5) * (p.derived ? 0.55 : 1);
+        // 흰 테두리를 먼저 깔아 같은 색 선 위에서도 가로선이 보이게
+        ann[`halo-${p.id}-${r}-${m.id}`] = {
+          type: 'line', xMin: p.start - 0.3, xMax: p.end + 0.3, yMin: y, yMax: y,
+          borderColor: `rgba(255,255,255,${sel ? 0.95 : 0.8})`, borderWidth: w + 3, borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
+        };
         ann[`bar-${p.id}-${r}-${m.id}`] = {
           type: 'line', xMin: p.start, xMax: p.end, yMin: y, yMax: y,
-          borderColor: faint ? alpha(m.color, p.derived ? 0.4 : 0.6) : p.derived ? alpha(m.color, 0.5) : m.color,
-          borderWidth: faint ? 2.5 : thin ? 2.5 : 5, borderDash: dash(r),
+          borderColor: a < 1 ? alpha(m.color, a) : m.color, borderWidth: w, borderDash: dash(r),
           borderCapStyle: 'butt', drawTime: 'afterDatasetsDraw',
         };
       });
@@ -176,7 +173,7 @@ function build(v) {
     zeroFloor: s.mode === 'abs' && v.elMeta.kind === 'days',
   }) ?? { min: 0, max: 1, step: 1 };
 
-  return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown, periodOnly, allBarsShown, selBarsShown };
+  return { datasets, ann, range, xMin, xMax, regions, compare, scenA, scenB, others, obsSeries, derivedShown, periodOnly, barsShown };
 }
 
 /** 관측 자료 이름표: "관측 · 6개 지점 평균(지점값)" */
@@ -186,28 +183,34 @@ export function obsLabelText(series) {
 
 /* ───────────── 도구 줄·범례·안내 ───────────── */
 
-/** 그래프 안 왼쪽 위 작은 범례: 시나리오 색 점 + 이름, 「20년 평균」을 켰을 때만 ▬ 20년 평균 */
+/** 그래프 안 왼쪽 위 작은 범례: 시나리오 색 점 + 이름, 20년 평균 가로선이 있을 때만 ▬ 20년 평균 */
 function innerLegendHTML(b) {
   const items = [b.scenA, ...(b.scenB ? [b.scenB] : []), ...b.others];
   let html = items.map((m) => `<span class="li"><span class="sdot" style="--c:${esc(m.color)}"></span>${esc(m.label)}</span>`).join('');
-  if (b.allBarsShown) {
+  if (b.barsShown) {
     html += `<span class="li"><span class="bar-sw" aria-hidden="true"></span>20년 평균</span>`;
     if (b.derivedShown) html += `<span class="li"><span class="bar-sw light" aria-hidden="true"></span>20년 평균(${T.appCalc})</span>`;
   }
   return html;
 }
 
-function toolsHTML(v) {
+/** 그래프 보기 옵션: 4개 모두 보기 · 과거 관측 보기(1912~) · 20년 평균선 표시 · ⓘ */
+function toolsHTML(v, b) {
   const { s } = v;
   const series = v.stations?.series ?? {};
   const obsDisabled = !v.obsAllowed || !v.stations;
+  const all4Disabled = !!s.regionB;
+  // 전국처럼 연도별 값이 없는 지역만 보일 때는 20년 평균이 유일한 자료라 늘 켜져 있음
+  const barsFixed = b.periodOnly.length === b.regions.length;
   const opts = Object.entries(series).map(([k, val]) => `<option value="${esc(k)}" ${k === s.obsLayer.series ? 'selected' : ''}>${esc(val.name)}</option>`).join('');
   return `
+    <label class="check${all4Disabled ? ' disabled' : ''}" title="${all4Disabled ? T.all4Disabled : ''}"><input type="checkbox" data-change="all4" data-key="all4"
+      ${s.showAll4 && !all4Disabled ? 'checked' : ''} ${all4Disabled ? 'disabled' : ''}><span>4개 모두 보기</span></label>
     <label class="check${obsDisabled ? ' disabled' : ''}"><input type="checkbox" data-change="obs-on" data-key="obs-on"
       ${v.obsOn ? 'checked' : ''} ${obsDisabled ? 'disabled' : ''}><span>과거 관측 보기(1912~)</span></label>
     ${v.obsOn ? `<select data-change="obs-series" data-key="obs-series" aria-label="관측 자료 고르기">${opts}</select>` : ''}
-    <label class="check"><input type="checkbox" data-change="period-bars" data-key="period-bars" ${s.periodBars ? 'checked' : ''}>
-      <span>20년 평균</span></label>
+    <label class="check${barsFixed ? ' disabled' : ''}" title="${barsFixed ? T.barsFixed : ''}"><input type="checkbox" data-change="period-bars" data-key="period-bars"
+      ${s.periodBars || barsFixed ? 'checked' : ''} ${barsFixed ? 'disabled' : ''}><span>20년 평균선 표시</span></label>
     <button class="icon-btn" data-action="graph-info" data-key="graph-info" aria-haspopup="dialog" aria-label="그래프 읽는 법">ⓘ</button>`;
 }
 
@@ -228,8 +231,8 @@ function noteLine(v, b) {
   if (b.periodOnly.length === b.regions.length) parts.push(T.graphLinePeriodOnly);
   else {
     parts.push(b.obsSeries ? T.graphLineObs : T.graphLine);
-    if (b.allBarsShown) parts.push(T.graphLineBars);
-    else if (b.selBarsShown) parts.push(T.graphLineSelBar);
+    if (b.barsShown) parts.push(s.year == null ? T.graphLineBarsSel : T.graphLineBars);
+    if (s.year == null) parts.push(T.graphLineShade);
   }
   if (s.obsLayer.on && !v.obsAllowed) parts.push(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`);
   if (s.regionB) parts.push('지역 비교 중에는 4개 모두를 쓸 수 없어요');
@@ -312,7 +315,7 @@ export function renderChart(root, v, actions) {
   const b = build(v);
 
   root.querySelector('.chart-title').textContent = chartTitle(v);
-  root.querySelector('.chart-tools').innerHTML = toolsHTML(v);
+  root.querySelector('.chart-tools').innerHTML = toolsHTML(v, b);
   const wrap = root.querySelector('.chart-wrap');
   wrap.classList.toggle('is-mock', !!v.mock);
   root.querySelector('.in-legend').innerHTML = innerLegendHTML(b);

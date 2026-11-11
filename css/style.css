@@ -1,6 +1,7 @@
 /* 기후변화 시나리오 탐구실 — 스타일
    큰 지도 두 장 + 큰 시계열 그래프가 화면 대부분을 차지. 밝은 바탕 + 흰 카드.
-   시나리오 색(manifest의 color)은 데이터에만 쓰고 버튼 등 UI에는 쓰지 않습니다.
+   시나리오 색(manifest의 color)은 데이터와, 같은 시나리오를 가리키는 색 점(시나리오 버튼·지도 제목·범례)에만 씁니다.
+   조작 요소는 역할별 모양(기후요소 밑줄 탭, 시나리오 드롭다운, 기간 선택 버튼, 분할 버튼)으로 나누고 진한 채움 바탕은 쓰지 않습니다.
    글자: 기본 16px, 보조 최소 14px (12px 이하 없음). 누름 대상 최소 44×44px. */
 
 :root {
@@ -49,55 +50,77 @@ h1, h2, h3, p { margin: 0; }
 }
 
 .head { flex: none; background: var(--bg); z-index: 40; }
-.topbar { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; padding: 6px var(--gap) 4px; min-height: 56px; }
-.brand { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-right: auto; }
+
+/* ───── 1줄: 머리 막대(흰 바탕) — 제목 · 기후요소 밑줄 탭 ⓘ · 값/변화량 ───── */
+.topbar { display: flex; align-items: stretch; flex-wrap: wrap; column-gap: 24px; padding: 0 var(--gap); background: #fff; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; min-height: 48px; }
 .brand h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; white-space: nowrap; }
 .logo { display: inline-flex; flex: none; }
 /* 제목 부분(로고·제목)을 누르면 처음 화면으로 */
-a.brand{color:inherit;text-decoration:none;border-radius:16px;margin:-4px -8px;padding:4px 8px;-webkit-tap-highlight-color:transparent}
+a.brand{color:inherit;text-decoration:none;border-radius:12px;margin:0 -8px;padding:0 8px;-webkit-tap-highlight-color:transparent}
 a.brand .logo{transition:transform .15s}
 @media (hover:hover){ a.brand:hover h1{color:var(--accent)} a.brand:hover .logo{transform:translateY(-1px)} }   /* 터치 화면에서는 누른 뒤 색이 남지 않게 */
-a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.top-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
+.top-controls { display: flex; align-items: stretch; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.top-controls > .icon-btn { align-self: center; }
+.mode-group { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-left: 16px; }
 
-/* 공통 버튼 모양 */
-.seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 12px; overflow: hidden; background: #fff; flex: none; }
-.seg button { min-height: 44px; min-width: 52px; padding: 0 13px; border: 0; background: transparent; font-weight: 600; font-size: 16px; white-space: nowrap; }
-.seg button + button { border-left: 1px solid var(--line-2); }
-.seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
-.seg button:disabled { color: #a3a9b3; }
+/* 기후요소: 선택한 항목에만 밑줄 (글자 굵기는 같게 두어 눌러도 자리가 흔들리지 않게) */
+.el-tabs { display: flex; align-items: stretch; }
+.el-tabs button { position: relative; min-height: 48px; padding: 0 14px; border: 0; background: transparent; color: #6b7382; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.el-tabs button::before { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: transparent; }
+.el-tabs button:hover { color: var(--ink); }
+.el-tabs button[aria-pressed="true"] { color: var(--ink); }
+.el-tabs button[aria-pressed="true"]::before { background: var(--ink); }
+
+/* 공통 버튼 모양 — 높이 44px, 모서리 10px, 글자 16px(이름표 14px)로 통일. 진한 채움은 쓰지 않음 */
+/* 분할 버튼(값/변화량, mm/%, 나란히/차이, 지도 A/B): 옅은 회색 틀 안에서 고른 칸만 흰 바탕 */
+.seg { display: inline-flex; align-items: stretch; gap: 2px; padding: 3px; background: #e9ecf1; border-radius: 10px; flex: none; }
+.seg button { position: relative; min-height: 38px; min-width: 48px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: #5f6878; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.seg button::after { content: ""; position: absolute; inset: -3px -1px; }   /* 누르는 영역은 틀 높이 44px 전체 */
+.seg button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(28, 35, 48, 0.16), 0 0 0 1px rgba(28, 35, 48, 0.05); }
+.seg button:disabled { color: #a9afb8; }
 .chip {
-  min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line-2); background: #fff;
+  min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #d5dbe3; background: #fff;
   font-weight: 600; font-size: 16px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
 }
-.chip:hover:not(:disabled) { border-color: var(--ink-2); }
-.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.chip:hover:not(:disabled) { border-color: #9aa2ae; }
+.chip:disabled { color: #a9afb8; background: var(--soft); }
+.chip[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-weight: 700; }
 .chip.ghost { background: transparent; border-style: dashed; }
 .chip.small { min-height: 44px; padding: 0 10px; font-size: 14px; }
-.icon-btn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 1px solid var(--line-2); background: #fff; font-size: 18px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; }
-.check { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; font-weight: 600; font-size: 15px; cursor: pointer; white-space: nowrap; }
-.check input { width: 22px; height: 22px; margin: 0; accent-color: var(--ink); }
+.icon-btn { min-width: 44px; min-height: 44px; border-radius: 22px; border: 0; background: transparent; color: #6b7382; font-size: 19px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.icon-btn:hover { background: #eef1f5; color: var(--ink); }
+.check { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 2px; font-weight: 600; font-size: 15px; cursor: pointer; white-space: nowrap; color: var(--ink-2); }
+.check input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
 .check.disabled { color: #9aa1ab; cursor: not-allowed; }
 .sdot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); flex: none; display: inline-block; }
 .badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 14px; font-weight: 800; flex: none; }
 .badge.b { background: #fff; color: var(--ink); border: 2px dashed var(--ink); }
 
-/* ───── 2줄: 시나리오 · 4개 모두 | 기간 ───── */
-.cond-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 0 var(--gap) 10px; }
-.ctl-label { font-size: 14px; font-weight: 700; color: var(--muted); white-space: nowrap; }
-.sep { width: 1px; height: 28px; background: var(--line-2); margin: 0 6px; flex: none; }
-.vs { color: var(--muted); font-weight: 600; font-size: 14px; }
+/* ───── 2줄: 공통 조건 — 시나리오 A vs B | 기간 (지도·그래프 모두에 적용) ───── */
+.cond-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 40px; padding: 6px var(--gap); }
+.cg { display: flex; align-items: center; gap: 8px; }
+.ctl-label { font-size: 14px; font-weight: 700; color: var(--muted); white-space: nowrap; margin-right: 4px; }
+.vs { color: var(--muted); font-weight: 600; font-size: 14px; margin: 0 4px; }
+/* 시나리오 드롭다운: 얇은 테두리, 작은 A/B 표시, 지도·그래프와 같은 시나리오 색 점 */
 .scen-btn {
-  display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 12px 0 6px; flex: none;
-  border: 1px solid var(--line-2); border-radius: 12px; background: #fff; font-size: 16px; font-weight: 700; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px 0 8px; flex: none;
+  border: 1px solid #d5dbe3; border-radius: 10px; background: #fff; font-size: 16px; font-weight: 700; white-space: nowrap;
 }
-.scen-btn:hover { border-color: var(--ink-2); }
-.scen-btn .ab { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 6px; background: var(--soft); border: 1px solid var(--line-2); font-size: 14px; font-weight: 800; }
+.scen-btn:hover { border-color: #9aa2ae; }
+.scen-btn .ab { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 5px; background: #eef1f5; color: var(--ink-2); font-size: 14px; font-weight: 800; line-height: 1; }
 .scen-btn .sl.none { color: var(--muted); font-weight: 600; }
-.scen-btn .caret { color: var(--muted); font-size: 14px; }
-.period-seg button { min-width: 0; padding: 0 12px; }
-.year-chip { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 4px 0 14px; border-radius: 12px; background: var(--ink); color: #fff; font-weight: 700; font-size: 16px; white-space: nowrap; }
-.year-chip .x { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: inherit; font-size: 16px; border-radius: 8px; }
+.scen-btn .caret { color: #8a919d; font-size: 14px; margin-left: 2px; }
+/* 기간: 가벼운 선택 버튼 — 고른 기간만 흰 바탕 + 진한 테두리 */
+.period-tabs { display: inline-flex; gap: 2px; }
+.period-tabs button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: #5f6878; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.period-tabs button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--ink); background: rgba(28, 35, 48, 0.05); }
+.period-tabs button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.period-tabs button:disabled { color: #b0b6bf; }
+.year-chip { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 0 0 14px; border-radius: 10px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--ink); color: var(--ink); font-weight: 700; font-size: 16px; white-space: nowrap; }
+.year-chip .x { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: inherit; font-size: 16px; border-radius: 10px; }
 
 /* ───── 지도·그래프 무대 ───── */
 .stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); padding: 0 var(--gap); }
@@ -121,7 +144,6 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .region-pair { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px 0 10px; border: 1px solid var(--ink); border-radius: 12px; font-weight: 700; }
 .region-pair .x { min-width: 44px; min-height: 44px; border: 0; background: transparent; font-size: 16px; border-radius: 8px; }
 .pick-hint { font-weight: 700; font-size: 15px; background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink); border-radius: 10px; padding: 9px 12px; }
-.map-tabs { display: flex; gap: 6px; }
 .map-tabs-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .maps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; flex: 1; min-height: 0; }
 .maps.single { grid-template-columns: minmax(0, 1fr); }
@@ -174,8 +196,8 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 /* ───── 시계열 그래프 ───── */
 .chart-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
 .chart-title { font-size: 17px; font-weight: 800; color: var(--ink); margin-right: auto; }
-.chart-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
-.chart-tools select { min-height: 44px; border: 1px solid var(--line-2); border-radius: 10px; background: #fff; padding: 0 8px; font-size: 15px; max-width: 170px; }
+.chart-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; }
+.chart-tools select { min-height: 44px; border: 1px solid #d5dbe3; border-radius: 10px; background: #fff; padding: 0 8px; font-size: 15px; max-width: 170px; }
 .chart-tools select:disabled { color: #a3a9b3; }
 .chart-tools .icon-btn { margin-left: 2px; }
 .year-strip { border: 1px solid var(--line-2); border-radius: 12px; padding: 4px 6px 6px 12px; background: #fff; box-shadow: 0 2px 8px rgba(28, 35, 48, 0.06); font-size: 15px; flex: none; }
@@ -333,23 +355,36 @@ footer .hub:hover{color:var(--ink);text-decoration-color:currentColor}
   .keybar { margin-bottom: var(--gap); }
 }
 
-/* ───── 세로 화면·좁은 화면: 띠 → 상단 바 → 토큰 → 지도 → 그래프 → 핵심 수치 → 접힌 표 ───── */
+/* ───── 세로 화면·좁은 화면: 띠 → 머리 막대 → 공통 조건 → 지도 → 그래프 → 핵심 수치 → 접힌 표 ───── */
 @media (max-width: 1023px), (orientation: portrait) {
   .head { position: sticky; top: var(--banner-h, 30px); box-shadow: 0 6px 10px -10px rgba(28, 35, 48, 0.4); }
+  .brand { flex-basis: 100%; min-height: 48px; }
+  .top-controls { flex-basis: 100%; }
+  .el-tabs button { min-height: 48px; }
   .stage { grid-template-columns: minmax(0, 1fr); }
   .chart-wrap { min-height: 0; height: 340px; flex: none; }
+}
+/* 세로 태블릿·휴대폰: 공통 조건을 짧게 — "시나리오"·"기간" 글자는 화면에서만 숨김(읽기 도구에는 남김).
+   세로 태블릿(800×1280)은 한 줄에, 휴대폰은 A·B가 한 화면에 보이고 기간은 옆으로 밀어서 */
+@media (max-width: 1023px) {
+  .cond-row .ctl-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+}
+@media (min-width: 641px) and (max-width: 1023px) {
+  .cond-row { gap: 6px 20px; }
+  .period-tabs button { padding: 0 10px; }
 }
 @media (max-width: 640px) {
   :root { --gap: 12px; }
   .brand h1 { font-size: 18px; }
-  .topbar { gap: 4px 10px; padding-bottom: 2px; }
-  /* 휴대폰: 고정되는 머리글이 화면을 너무 차지하지 않게, 조작 줄과 토큰 줄을 한 줄 가로 스크롤로 */
+  .brand { min-height: 44px; }
+  /* 휴대폰: 고정되는 머리글이 화면을 너무 차지하지 않게, 탭 줄과 조건 줄을 한 줄 가로 스크롤로 */
   .top-controls, .cond-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .top-controls::-webkit-scrollbar, .cond-row::-webkit-scrollbar { display: none; }
-  .top-controls { width: 100%; padding-bottom: 2px; }
-  .cond-row { padding-bottom: 8px; }
+  .cond-row { gap: 6px 24px; }
   .top-controls > *, .cond-row > * { flex: none; }
+  .el-tabs button { padding: 0 11px; }
   .seg button { padding: 0 10px; min-width: 44px; font-size: 15px; }
+  .period-tabs button { padding: 0 10px; }
   .chart-wrap { height: 280px; }
   .kb-item .big { font-size: 26px; }
   .kb-row { gap: 4px 18px; }

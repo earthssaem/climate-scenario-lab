@@ -1,4 +1,4 @@
-// ui-controls.js — 상단 두 줄(기후요소·표시 방식 / 시나리오·4개 모두·기간), 지도 머리의 분석 지역, 시나리오 선택 창, ⓘ 창
+// ui-controls.js — 상단 두 줄(기후요소 탭·표시 방식 / 시나리오·기간), 지도 머리의 분석 지역, 시나리오 선택 창, ⓘ 창
 // 화면은 상태(view.s)로만 그립니다. 버튼은 data-action 속성만 달고, 실제 처리는 main.js 한 곳에서 합니다.
 import {
   T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, derivedNote, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
@@ -8,31 +8,31 @@ import * as D from './data.js';
 const pressed = (on) => `aria-pressed="${on ? 'true' : 'false'}"`;
 const shortEl = (name) => name.replace(/일수$/, '');   // 폭염일수 → 폭염 (상단 바용 짧은 이름)
 
-/* ───────────── 1줄: 기후요소 ⓘ | 값/변화량 (강수량 mm/%) ───────────── */
+/* ───────────── 1줄(머리 막대): 기후요소 밑줄 탭 ⓘ … 값/변화량 (강수량 mm/%) ───────────── */
 
 export function renderTopControls(root, v) {
   const { s, manifest } = v;
   if (!manifest) { root.innerHTML = ''; return; }
   const isPrcp = v.elMeta?.kind === 'prcp';
   root.innerHTML = `
-    <span class="ctl-label" id="lblEl">기후요소</span>
-    <div class="seg el-seg" role="group" aria-labelledby="lblEl">
+    <div class="el-tabs" role="group" aria-label="기후요소">
       ${manifest.elements.map((e) => `<button data-action="element" data-id="${esc(e.id)}" data-key="el-${esc(e.id)}"
         ${pressed(e.id === s.element)} aria-label="${esc(e.name)}">${esc(shortEl(e.name))}</button>`).join('')}
     </div>
     <button class="icon-btn" data-action="info" data-key="info" aria-haspopup="dialog" aria-label="${esc(v.elMeta?.name ?? '')} 설명 보기">ⓘ</button>
-    <span class="sep" aria-hidden="true"></span>
-    <div class="seg" role="group" aria-label="표시 방식">
-      <button data-action="mode" data-id="abs" data-key="mode-abs" ${pressed(s.mode === 'abs')}>값</button>
-      <button data-action="mode" data-id="chg" data-key="mode-chg" ${pressed(s.mode === 'chg')}>변화량</button>
-    </div>
-    ${isPrcp && s.mode === 'chg' ? `<div class="seg" role="group" aria-label="강수량 변화량 단위">
-      <button data-action="prcp-unit" data-id="mm" data-key="pu-mm" ${pressed(s.prcpUnit === 'mm')}>mm</button>
-      <button data-action="prcp-unit" data-id="pct" data-key="pu-pct" ${pressed(s.prcpUnit === 'pct')}>%</button>
-    </div>` : ''}`;
+    <div class="mode-group">
+      <div class="seg" role="group" aria-label="표시 방식">
+        <button data-action="mode" data-id="abs" data-key="mode-abs" ${pressed(s.mode === 'abs')}>값</button>
+        <button data-action="mode" data-id="chg" data-key="mode-chg" ${pressed(s.mode === 'chg')}>변화량</button>
+      </div>
+      ${isPrcp && s.mode === 'chg' ? `<div class="seg" role="group" aria-label="강수량 변화량 단위">
+        <button data-action="prcp-unit" data-id="mm" data-key="pu-mm" ${pressed(s.prcpUnit === 'mm')}>mm</button>
+        <button data-action="prcp-unit" data-id="pct" data-key="pu-pct" ${pressed(s.prcpUnit === 'pct')}>%</button>
+      </div>` : ''}
+    </div>`;
 }
 
-/* ───────────── 2줄: 시나리오 A vs B, 4개 모두 | 기간 (지도·그래프 공통 조건) ───────────── */
+/* ───────────── 2줄(공통 조건): 시나리오 A vs B | 기간 — 지도와 그래프가 함께 씀 ───────────── */
 
 function scenButton(v, slot) {
   const id = slot === 'A' ? v.s.scenA : v.s.scenB;
@@ -45,23 +45,22 @@ function scenButton(v, slot) {
 export function renderCondRow(root, v) {
   const { s, manifest } = v;
   if (!manifest) { root.innerHTML = ''; return; }
-  const all4Disabled = !!s.regionB;
   const period = s.year != null
     ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>`
-    : `<div class="seg period-seg" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
+    : `<div class="period-tabs" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
       const off = p.derived && !v.derivedOk(p);
       return `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(p.id === s.period)} ${off ? 'disabled' : ''}
         aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalc})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${esc(p.derived ? `${p.label}*` : p.label)}</button>`;
     }).join('')}</div>`;
   root.innerHTML = `
-    <span class="ctl-label">시나리오</span>
-    ${scenButton(v, 'A')}<span class="vs">vs</span>${scenButton(v, 'B')}
-    <label class="check${all4Disabled ? ' disabled' : ''}" title="${all4Disabled ? T.all4Disabled : ''}">
-      <input type="checkbox" data-change="all4" data-key="all4" ${s.showAll4 && !all4Disabled ? 'checked' : ''} ${all4Disabled ? 'disabled' : ''}>
-      <span>4개 모두</span></label>
-    <span class="sep" aria-hidden="true"></span>
-    <span class="ctl-label" id="lblPeriod">기간</span>
-    ${period}`;
+    <div class="cg" role="group" aria-labelledby="lblScen">
+      <span class="ctl-label" id="lblScen">시나리오</span>
+      ${scenButton(v, 'A')}<span class="vs">vs</span>${scenButton(v, 'B')}
+    </div>
+    <div class="cg" role="group" aria-labelledby="lblPeriod">
+      <span class="ctl-label" id="lblPeriod">기간</span>
+      ${period}
+    </div>`;
 }
 
 /** 지도 머리 왼쪽: 분석 지역 + [전국으로] + [+ 비교 지역] / 비교 중 / 비교 지역 고르는 중 */
