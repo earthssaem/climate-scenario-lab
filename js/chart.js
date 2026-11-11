@@ -197,9 +197,13 @@ function build(v) {
       });
     });
   });
-  // 추세선이 있으면 현재기후 이름표는 아래로 (2030 점·값 이름표와 겹치지 않게), 아래 여유가 없을 때만 그대로
-  if (trendShown && ann.curLabel && curLabelY && ann.curLabel.position.y === 'end' && (curLabelY.min - range.min) / ySpan >= 0.1) {
-    Object.assign(ann.curLabel, { yValue: curLabelY.min, position: { ...ann.curLabel.position, y: 'start' }, yAdjust: 7 });
+  // 추세선이 있으면 현재기후 이름표는 짧게("현재기후 · 대구" — 기간은 회색 띠가 보여 줌) 해서 2030 점에 닿지 않게,
+  // 아래 여유가 있으면 선 아래로
+  if (trendShown && ann.curLabel && curLabelY) {
+    ann.curLabel.content = [String(ann.curLabel.content[0]).replace(/ 평균\(\d{4}~\d{4}\)$/, '')];
+    if (ann.curLabel.position.y === 'end' && (curLabelY.min - range.min) / ySpan >= 0.075) {
+      Object.assign(ann.curLabel, { yValue: curLabelY.min, position: { ...ann.curLabel.position, y: 'start' }, yAdjust: 7 });
+    }
   }
   // 추세선을 켜면 연도별 선(현재기후·시나리오)은 흐리게 — 추세가 먼저 눈에 들어오게
   if (s.periodBars && trendShown) {
