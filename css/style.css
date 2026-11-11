@@ -121,7 +121,10 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 /* [하나만 보기 | 두 개 비교]: 시나리오 고르기 바로 앞 */
 .scen-mode button { padding: 0 11px; font-size: 15px; }
 .period-tabs { display: inline-flex; gap: 2px; }
-.period-tabs button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: #5f6878; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.period-tabs button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: #5f6878; font-size: 16px; font-weight: 700; white-space: nowrap;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.12; }
+/* 기간 이름 아랫줄의 (연도) */
+.period-tabs .pb-yr { font-size: 12.5px; font-weight: 600; letter-spacing: -0.01em; }
 .period-tabs button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--ink); background: rgba(28, 35, 48, 0.05); }
 .period-tabs button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
 .period-tabs button:disabled { color: #b0b6bf; }
@@ -243,6 +246,16 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 }
 .graph-note { font-size: 14px; color: var(--muted); flex: none; }
 .graph-note b { color: var(--ink-2); }
+/* 그래프 아래 설명: 견본 + 이름을 한 덩어리로(줄바꿈은 덩어리 사이에서만), "예보가 아님"은 다음 줄 */
+.graph-note .gn-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+.graph-note .gk { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--ink-2); }
+.graph-note .gn-model { display: block; margin-top: 2px; }
+.gk-sw { display: inline-block; flex: none; width: 18px; }
+.gk-sw.cur { height: 3px; border-radius: 2px; background: #262b33; }
+.gk-sw.band { height: 8px; border-radius: 2px; background: rgba(71, 78, 89, 0.28); }
+.gk-sw.scen { height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--c1) 0 50%, var(--c2) 50% 100%); }
+.gk-sw.box { width: 16px; height: 14px; border-radius: 2px; background: rgba(28, 35, 48, 0.07); box-shadow: inset 0 0 0 1px rgba(28, 35, 48, 0.16); }
+.gk-sw.obs { height: 0; border-top: 2px dashed #9aa1ab; }
 
 /* ───── 핵심 수치 줄 ───── */
 /* 숫자 카드: 오른쪽 그래프 패널의 제목 바로 아래 (머리 줄 = 기간 또는 연도, 그 아래 A · B · 두 시나리오 차이) */
@@ -424,20 +437,22 @@ footer .hub:hover{color:var(--ink);text-decoration-color:currentColor}
   /* 지도 한 장(하나만 보기·차이 지도)은 세로 화면에서 너무 길어지지 않게 */
   .maps.single .map-svg { max-height: min(620px, 62vh); }
 }
-/* 1365px 이하(디벗 1280×800·1340×800 등): [하나만 보기|두 개 비교]가 들어갈 자리 — "시나리오"·"기간" 글자는 화면에서만 숨기고 간격을 줄임 */
-@media (max-width: 1365px) {
+/* 1499px 이하(디벗 1280×800·1340×800, 1366·1440 노트북 등): [하나만 보기|두 개 비교]와 두 줄 기간 버튼, 연도 보기 칩이 한 줄에 들어갈 자리 —
+   "시나리오"·"기간" 글자는 화면에서만 숨기고 간격을 줄임 */
+@media (max-width: 1499px) {
   .cond-row { gap: 6px 24px; }
   .cond-row .ctl-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   .cond-row .cg { gap: 6px; }
   .scen-mode button { padding: 0 9px; }
-  .period-tabs button { padding: 0 8px; }
+  .period-tabs button { padding: 0 6px; }
+  .period-tabs .pb-yr { font-size: 12px; }
+  /* 그래프 아래 설명: 견본 줄 한 줄 + "예보가 아니에요" 한 줄 */
+  .graph-note { font-size: 13px; }
+  .graph-note .gn-keys { column-gap: 10px; }
   .year-chip { padding-left: 12px; }
   /* 기간 옆 ⓘ 두 개: 보이는 폭은 30px, 누르는 영역은 ::after로 44px */
   .period-tabs .period-info { position: relative; min-width: 30px; padding: 0; margin-left: -4px; }
   .period-tabs .period-info::after { content: ""; position: absolute; inset: 0 -7px; }
-  /* "현재기후(2000~2019)": 좁은 디벗 폭에서는 버튼 안 두 줄 — 현재기후 / 아래 작은 연도 */
-  .period-tabs [data-id="cur"] { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
-  .period-tabs .pb-yr { font-size: 14px; font-weight: 600; }
 }
 /* 1199px 이하(1024×768 가로, 세로 태블릿, 휴대폰): 공통 조건을 짧게 — "시나리오"·"기간" 글자는 화면에서만 숨김(읽기 도구에는 남김).
    1024 가로는 한 줄에, 휴대폰은 A·B가 한 화면에 보이고 기간은 옆으로 밀어서 */

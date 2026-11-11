@@ -264,23 +264,31 @@ export function chartTitle(v) {
   return `${where} · ${v.elMeta.name} · ${modeName(s.mode, v.pct)}`;
 }
 
-/** 그래프 아래 한 줄 — 지금 상황에 맞는 짧은 문장 하나 */
+/** 그래프 아래 설명 — 그래프에 보이는 것마다 작은 견본(선·띠·바탕) + 쉬운 이름, 끝에 "예보가 아님" 한 줄 */
 function noteLine(v, b) {
-  const { s } = v;
+  const { s, manifest } = v;
+  const sw = (cls, style = '') => `<span class="gk-sw ${cls}"${style ? ` style="${style}"` : ''} aria-hidden="true"></span>`;
+  const key = (swatch, text) => `<span class="gk">${swatch}${esc(text)}</span>`;
   const parts = [];
   if (b.periodOnly.length) parts.push(`<b>${esc(b.periodOnly.map((r) => periodOnlyNote(v.regionMeta(r)?.short ?? r)).join(' / '))}</b>`);
-  if (b.compare) parts.push(`실선 ${esc(v.regionMeta(s.regionA)?.short)} · 점선 ${esc(v.regionMeta(s.regionB)?.short)}`);
-  if (b.periodOnly.length === b.regions.length) parts.push(T.graphLinePeriodOnly);
+  if (b.compare) parts.push(`<span class="gk">${esc(`실선 ${v.regionMeta(s.regionA)?.short} · 점선 ${v.regionMeta(s.regionB)?.short}`)}</span>`);
+  const allPeriodOnly = b.periodOnly.length === b.regions.length;
+  if (allPeriodOnly) parts.push(`<span class="gk">${esc(T.graphLinePeriodOnly)}</span>`);
   else {
-    parts.push(b.obsSeries ? T.graphLineObs : T.graphLine);
-    if (s.year == null) parts.push(T.graphLineShade);
-    if (b.trendShown) parts.push(T.graphLineTrend);
+    const cols = [s.scenA, s.scenMode === 'single' ? null : s.scenB].filter(Boolean)
+      .map((id) => manifest.scenarios.find((m) => m.id === id)?.color).filter(Boolean);
+    const c1 = cols[0] ?? '#888888'; const c2 = cols[1] ?? c1;
+    if (b.obsSeries) parts.push(key(sw('obs'), T.graphKeyObs));
+    parts.push(key(sw('cur'), T.graphKeyCur));
+    parts.push(key(sw('band'), T.graphKeyBand));
+    parts.push(key(sw('scen', `--c1:${esc(c1)};--c2:${esc(c2)}`), T.graphKeyScen));
+    if (s.year == null) parts.push(key(sw('box'), T.graphKeyShade));
+    if (b.trendShown) parts.push(`<span class="gk">${esc(T.graphLineTrend)}</span>`);
   }
-  if (s.obsLayer.on && !v.obsAllowed) parts.push(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`);
-  if (s.regionB) parts.push('지역 비교 중에는 4개 모두를 쓸 수 없어요');
-  const line = parts.join(' · ');
-  // 연도별 선이 있으면 끝에: 기후모델 전망값이지 그해 날씨 예보가 아님
-  return b.periodOnly.length === b.regions.length ? line : `${line}. ${T.graphLineModel}`;
+  if (s.obsLayer.on && !v.obsAllowed) parts.push(`<span class="gk">${esc(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`)}</span>`);
+  if (s.regionB) parts.push(`<span class="gk">${esc('지역 비교 중에는 4개 모두를 쓸 수 없어요')}</span>`);
+  // 연도별 선이 있으면 끝에 따로 한 줄: 기후모델 전망값이지 그해 날씨 예보가 아님
+  return `<span class="gn-keys">${parts.join('')}</span>${allPeriodOnly ? '' : `<span class="gn-model">${esc(T.graphLineModel)}</span>`}`;
 }
 
 /* ───────────── 그리기 ───────────── */

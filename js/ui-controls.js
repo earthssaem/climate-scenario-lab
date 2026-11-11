@@ -70,9 +70,9 @@ export function renderCondRow(root, v) {
     ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>` : '';
   const period = `<div class="period-tabs" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
       const off = p.derived && !v.derivedOk(p);
-      // 현재기후는 기간을 화면에 바로 "현재기후(2000~2019)", 2061~2080은 별표 대신 눌러서 여는 ⓘ
-      const text = p.id === 'cur' ? `${p.label}(${p.start}~${p.end})` : p.label;
-      const inner = p.id === 'cur' ? `<span class="pb-main">${esc(p.label)}</span><span class="pb-yr">(${p.start}~${p.end})</span>` : esc(text);
+      // 기간 이름 아랫줄에 작은 글씨로 (연도) — 이름이 곧 연도인 2061~2080은 한 줄. 2061~2080은 별표 대신 눌러서 여는 ⓘ
+      const yr = `${p.start}~${p.end}`;
+      const inner = `<span class="pb-main">${esc(p.label)}</span>${p.label === yr ? '' : `<span class="pb-yr">(${yr})</span>`}`;
       const btn = `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(s.year == null && p.id === s.period)} ${off ? 'disabled' : ''}
         aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalcValue})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${inner}</button>`;
       if (p.id === 'cur') {
