@@ -314,6 +314,17 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 }
 .dlg.info { width: min(480px, calc(100vw - 32px)); }
 .dlg.note { width: min(440px, calc(100vw - 32px)); }
+/* 시나리오 창 ⓘ 시나리오 설명 (눌러서 펼침) */
+.scen-info-btn { justify-self: start; font-size: 15px; }
+.scen-info { display: grid; gap: 8px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.scen-info p { font-size: 15px; color: var(--ink-2); }
+.scen-info dl { margin: 0; display: grid; gap: 6px; }
+.scen-info dt { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
+.scen-info dt .lv { font-size: 14px; color: var(--muted); font-weight: 700; }
+.scen-info dd { margin: 0 0 0 18px; font-size: 15px; color: var(--ink-2); }
+.scen-info dd .co2 { display: block; font-size: 14px; color: var(--muted); }
+.scen-info .think { color: var(--ink); }
+.scen-info .src { font-size: 14px; color: var(--muted); }
 .dlg.regions { width: min(560px, calc(100vw - 32px)); }
 .rg-group { font-size: 14px; font-weight: 700; color: var(--muted); margin-top: 2px; }
 .region-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }

@@ -12,7 +12,7 @@ export const DEFAULT_STATE = Object.freeze({
   regionA: '11',         // 서울 (첫 화면에서 연도별 선이 보이게. 전국은 기간값만 있음)
   regionB: null,         // 비교 지역
   pickingRegionB: false, // "+ 비교 지역"을 누른 뒤 다음 지도 탭을 기다리는 중
-  period: 'p4',          // 후반기(2081~2100)
+  period: 'cur',         // 현재(2000~2019) — 첫 화면은 늘 현재기후에서 시작
   year: null,            // 숫자면 연도 보기 모드
   mapView: 'side',       // 'side' 나란히 | 'diff' 차이(B−A)
   obsLayer: Object.freeze({ on: false, series: '6avg' }),   // 과거 관측 보기(1912~) — 기본 꺼짐
@@ -28,6 +28,7 @@ export const DEFAULT_STATE = Object.freeze({
     sources: false,      // 푸터 [자료 출처 ⓘ] 창
     regionList: false,   // "분석 지역: 서울 ▾" 시도 목록 창
     note: null,          // 짧은 ⓘ 설명 창: 'p3'(2061~2080) | 'legend'(지도 색) | null
+    scenInfo: false,     // 시나리오 창 안의 ⓘ 시나리오 설명 펼침
   }),
 });
 
@@ -90,7 +91,8 @@ export function createStore() {
   const actions = {
     reset: () => set(clone(DEFAULT_STATE)),
     setElement: (id) => set({ element: id, ui: { ...state.ui, info: false } }),
-    openPicker: (slot) => setUi({ ...NO_DIALOG, picker: slot }),
+    openPicker: (slot) => setUi({ ...NO_DIALOG, picker: slot, scenInfo: false }),
+    toggleScenInfo: () => setUi({ scenInfo: !state.ui.scenInfo }),
     openInfo: () => setUi({ ...NO_DIALOG, info: true }),
     openGraphInfo: () => setUi({ ...NO_DIALOG, graphInfo: true }),
     openSources: () => setUi({ ...NO_DIALOG, sources: true }),

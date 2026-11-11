@@ -136,6 +136,7 @@ function handle(action, ds, el, evt) {
     case 'picker': lastOpener = el?.dataset.key || `picker-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
     case 'pick-scen': return A.setScenario(ds.slot, ds.id || null);
     case 'scen-mode': return A.setScenMode(ds.id);
+    case 'scen-info': return A.toggleScenInfo();
     case 'close-dialog': return A.closeDialogs();
     case 'retry-emissions': return ensureEmissions();
     case 'mode': return A.setMode(ds.id);

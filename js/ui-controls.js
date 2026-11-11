@@ -1,7 +1,7 @@
 // ui-controls.js — 상단 두 줄(기후요소 탭·표시 방식 / 시나리오·기간), 지도 머리의 분석 지역, 시나리오 선택 창, ⓘ 창
 // 화면은 상태(view.s)로만 그립니다. 버튼은 data-action 속성만 달고, 실제 처리는 main.js 한 곳에서 합니다.
 import {
-  T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, derivedNote, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
+  T, SCEN_DESC, SCEN_INFO, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, derivedNote, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
 } from './text.js';
 import * as D from './data.js';
 
@@ -187,7 +187,6 @@ function pickerHTML(v) {
       <span class="so-text">
         <span class="so-title"><span class="sdot" style="--c:${esc(m.color)}"></span><b>${esc(m.label)}</b><span class="lv">${esc(m.level)}</span>
           ${disabled ? `<span class="taken">${slot === 'A' ? 'B' : 'A'}에서 선택됨</span>` : ''}</span>
-        <span class="so-desc">${esc(SCEN_DESC[m.id] ?? '')}</span>
         <span class="so-co2">${T.co2Label} <b>${esc(m.co2_2100_ppm)}ppm</b></span>
       </span>
       <span class="so-curve">${curve(m)}</span>
@@ -196,11 +195,22 @@ function pickerHTML(v) {
   const none = slot === 'B' ? `<li><button class="scen-opt none" data-action="pick-scen" data-slot="B" data-id="" data-key="opt-none" ${pressed(!s.scenB)}>
       <span class="so-text"><span class="so-title"><b>${T.noneScenario}</b></span><span class="so-desc">${T.noneScenarioDesc}</span></span></button></li>` : '';
   const retry = v.emStatus === 'error' ? `<button class="chip ghost small" data-action="retry-emissions">${T.retry}</button>` : '';
+  // ⓘ 시나리오 설명: 목록에는 짧은 이름표(배출 낮음 …)만, 전체 설명은 눌러서 펼침 (기상청 기후변화 상황지도, 2024)
+  const infoOpen = !!s.ui.scenInfo;
+  const info = `<button class="chip scen-info-btn" data-action="scen-info" data-key="scen-info" aria-expanded="${infoOpen}" aria-controls="scenInfo">
+      ⓘ 시나리오 설명 ${infoOpen ? '접기' : '보기'}</button>
+    ${infoOpen ? `<div class="scen-info" id="scenInfo">
+      <p>${esc(SCEN_INFO.what)}</p>
+      <p>${esc(SCEN_INFO.number)}</p>
+      <dl>${v.manifest.scenarios.map((m) => `<dt><span class="sdot" style="--c:${esc(m.color)}"></span><b>${esc(m.label)}</b><span class="lv">${esc(m.level)}</span></dt>
+        <dd>${esc(SCEN_DESC[m.id] ?? '')}<span class="co2">2100년 CO₂ 농도 ${esc(m.co2_2100_ppm)}ppm</span></dd>`).join('')}</dl>
+      <p class="think">${esc(SCEN_INFO.early)}</p>
+      <p class="src">${esc(SCEN_INFO.source)}</p>
+    </div>` : ''}`;
   return dialogShell(`시나리오 고르기${s.scenMode === 'single' ? '' : ` <span class="slot-tag">${slot}</span>`}`, `
-      <p class="dlg-intro">${T.pickerIntro}</p>
+      ${info}
       <ul class="scen-list">${items}${none}</ul>
       <p class="caption"><span class="cap-swatch" aria-hidden="true"></span>미니 그래프: ${T.emissionCaption} ${retry}</p>
-      <p class="help">ⓘ ${T.pickerNameHelp}</p>
       <p class="help">ⓘ ${T.pickerTextbook}</p>`, 'picker');
 }
 
