@@ -3,6 +3,7 @@
 import * as D from './data.js';
 import { rangeOf } from './scales.js';
 import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedShort } from './text.js';
+import { chartTitle } from './chart.js';
 
 function cellButton(pid, enabled, big, small, label) {
   return `<button class="cell" data-action="period" data-id="${esc(pid)}" ${enabled ? '' : 'disabled'}
@@ -235,7 +236,7 @@ export function renderDetails(root, v) {
   if (root.hidden || !v.manifest || !v.el) return;
   const derived = v.manifest.periods.find((p) => p.derived);
   root.innerHTML = `
-    <div class="card-head"><h2>${T.details}</h2><span class="note">칸을 누르면 그 기간으로 바뀌어요</span></div>
+    <div class="card-head"><h2>${T.details} <span class="dt-cond">· ${esc(chartTitle(v))}</span></h2><span class="note">칸을 누르면 그 기간으로 바뀌어요</span></div>
     ${tableHTML(v)}
     <p class="note" style="margin-top:6px">${T.curColumnNote}${derived ? ` ${esc(derivedShort(derived, D.derivedMethod(v.el, derived)))}` : ''}</p>
     ${barsHTML(v, root.clientWidth - 40)}

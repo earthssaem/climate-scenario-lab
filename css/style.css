@@ -261,6 +261,7 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .details { margin: var(--gap); }
 .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
 .card-head h2 { font-size: 17px; font-weight: 800; margin-right: auto; }
+.card-head h2 .dt-cond { font-weight: 700; color: var(--ink-2); }
 .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .num-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 15px; min-width: 560px; }
 .num-tbl th, .num-tbl td { border-bottom: 1px solid var(--line); padding: 0; text-align: center; vertical-align: middle; }
