@@ -256,7 +256,7 @@ function toolsHTML(v, b) {
     <button class="icon-btn" data-action="graph-info" data-key="graph-info" aria-haspopup="dialog" aria-label="그래프 읽는 법">ⓘ</button>`;
 }
 
-/** 그래프 제목: 조건을 모두 담아 화면 캡처의 그림 설명이 되게 ("서울 · 평균기온 · 현재 대비 변화량") */
+/** 그래프 제목: 조건을 모두 담아 화면 캡처의 그림 설명이 되게 ("서울 · 평균기온 · 현재기후 대비 변화량") */
 export function chartTitle(v) {
   const { s } = v;
   const nm = (c) => v.regionMeta(c)?.short ?? c;

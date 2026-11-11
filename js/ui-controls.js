@@ -70,10 +70,11 @@ export function renderCondRow(root, v) {
     ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>` : '';
   const period = `<div class="period-tabs" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
       const off = p.derived && !v.derivedOk(p);
-      // 현재는 기간을 화면에 바로 "현재(2000~2019)", 2061~2080은 별표 대신 눌러서 여는 ⓘ
+      // 현재기후는 기간을 화면에 바로 "현재기후(2000~2019)", 2061~2080은 별표 대신 눌러서 여는 ⓘ
       const text = p.id === 'cur' ? `${p.label}(${p.start}~${p.end})` : p.label;
+      const inner = p.id === 'cur' ? `<span class="pb-main">${esc(p.label)}</span><span class="pb-yr">(${p.start}~${p.end})</span>` : esc(text);
       const btn = `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(s.year == null && p.id === s.period)} ${off ? 'disabled' : ''}
-        aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalcValue})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${esc(text)}</button>`;
+        aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalcValue})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${inner}</button>`;
       if (p.id === 'cur') {
         return `${btn}<button class="icon-btn period-info" data-action="note" data-id="cur" data-key="note-cur" aria-haspopup="dialog" aria-label="현재기후 설명">ⓘ</button>`;
       }
@@ -198,23 +199,33 @@ function pickerHTML(v) {
   const none = slot === 'B' ? `<li><button class="scen-opt none" data-action="pick-scen" data-slot="B" data-id="" data-key="opt-none" ${pressed(!s.scenB)}>
       <span class="so-text"><span class="so-title"><b>${T.noneScenario}</b></span><span class="so-desc">${T.noneScenarioDesc}</span></span></button></li>` : '';
   const retry = v.emStatus === 'error' ? `<button class="chip ghost small" data-action="retry-emissions">${T.retry}</button>` : '';
-  // ⓘ 시나리오 설명: 목록에는 짧은 이름표(배출 낮음 …)만, 전체 설명은 눌러서 펼침 (기상청 기후변화 상황지도, 2024)
+  // ⓘ 시나리오 설명: 목록에는 짧은 이름표(배출 낮음 …)만. ⓘ를 누르면 창이 설명만 보여 줌(목록은 숨김) — 디벗 화면에서 스크롤 없이
   const infoOpen = !!s.ui.scenInfo;
+  const narrowInfo = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches;
   const info = `<button class="chip scen-info-btn" data-action="scen-info" data-key="scen-info" aria-expanded="${infoOpen}" aria-controls="scenInfo">
-      ⓘ 시나리오 설명 ${infoOpen ? '접기' : '보기'}</button>
+      ${infoOpen ? '← 시나리오 목록으로' : 'ⓘ 시나리오 설명 보기'}</button>
     ${infoOpen ? `<div class="scen-info" id="scenInfo">
       <p>${esc(SCEN_INFO.what)}</p>
       <p>${esc(SCEN_INFO.number)}</p>
-      <dl>${v.manifest.scenarios.map((m) => `<dt><span class="sdot" style="--c:${esc(m.color)}"></span><b>${esc(m.label)}</b><span class="lv">${esc(m.level)}</span></dt>
-        <dd>${esc(SCEN_DESC[m.id] ?? '')}<span class="co2">2100년 CO₂ 농도 ${esc(m.co2_2100_ppm)}ppm</span></dd>`).join('')}</dl>
+      <dl>${v.manifest.scenarios.map((m) => {
+        const title = `<span class="sdot" style="--c:${esc(m.color)}"></span><b>${esc(m.label)}</b><span class="lv">${esc(m.level)}</span>`;
+        const co2 = `2100년 CO₂ 농도 ${esc(m.co2_2100_ppm)}ppm`;
+        // 휴대폰처럼 좁은 화면: 시나리오 이름을 누르면 설명이 펼쳐지는 접이식(한 번에 하나) — 창이 스크롤 없이 읽히게
+        if (narrowInfo) {
+          const open = s.ui.scenInfoItem === m.id;
+          return `<dt><button class="scen-item-btn" data-action="scen-item" data-id="${esc(m.id)}" data-key="si-${esc(m.id)}" aria-expanded="${open}">${title}<span class="caret" aria-hidden="true">${open ? '▴' : '▾'}</span></button></dt>
+            ${open ? `<dd>${esc(SCEN_DESC[m.id] ?? '')}<span class="co2b">${co2}</span></dd>` : ''}`;
+        }
+        return `<dt>${title}<span class="co2">${co2}</span></dt><dd>${esc(SCEN_DESC[m.id] ?? '')}</dd>`;
+      }).join('')}</dl>
       <p class="think">${esc(SCEN_INFO.early)}</p>
-      <p class="src">${esc(SCEN_INFO.source)}</p>
+      <div class="src">${SCEN_INFO.sources.map((t) => `<p>${linkify(t)}</p>`).join('')}</div>
     </div>` : ''}`;
   return dialogShell(`시나리오 고르기${s.scenMode === 'single' ? '' : ` <span class="slot-tag">${slot}</span>`}`, `
       ${info}
-      <ul class="scen-list">${items}${none}</ul>
+      ${infoOpen ? '' : `<ul class="scen-list">${items}${none}</ul>
       <p class="caption"><span class="cap-swatch" aria-hidden="true"></span>미니 그래프: ${T.emissionCaption} ${retry}</p>
-      <p class="help">ⓘ ${T.pickerTextbook}</p>`, 'picker');
+      <p class="help">ⓘ ${T.pickerTextbook}</p>`}`, 'picker');
 }
 
 function infoHTML(v) {
@@ -258,7 +269,7 @@ function regionListHTML(v) {
 function noteHTML(v) {
   const id = v.s.ui.note;
   if (id === 'cur') {
-    return dialogShell('현재기후', curInfoSections(v.manifest.periods).map(([h, t]) => `<h3 class="note-h">${esc(h)}</h3><p>${esc(t)}</p>`).join(''), 'note');
+    return dialogShell('현재기후', curInfoSections(v.manifest.periods).map(([h, t]) => `${h ? `<h3 class="note-h">${esc(h)}</h3>` : ''}<p${h ? '' : ' class="dlg-intro"'}>${esc(t)}</p>`).join(''), 'note');
   }
   if (id === 'legend') return dialogShell('지도 색', `<p>${esc(legendNote(v))}</p>`, 'note');
   const p = v.manifest.periods.find((x) => x.id === id);
@@ -271,7 +282,7 @@ function noteHTML(v) {
 /** 공통 범례 ⓘ 문구 — 지금 표시 방식에 맞게 */
 export function legendNote(v) {
   const { s, elMeta, pct } = v;
-  const what = s.mode === 'abs' ? `각 지역의 ${elMeta.name} 값` : pct ? '현재 대비 변화율' : elMeta.kind === 'temp' ? '현재 대비 상승량' : '현재 대비 변화량';
+  const what = s.mode === 'abs' ? `각 지역의 ${elMeta.name} 값` : pct ? '현재기후 대비 변화율' : elMeta.kind === 'temp' ? '현재기후 대비 상승량' : '현재기후 대비 변화량';
   return v.s.scenMode === 'single'
     ? `지도 색은 시나리오를 구분하는 색이 아니라 ${what}입니다. 색 범위는 시나리오·기간을 바꿔도 그대로라 서로 견주어 볼 수 있습니다.`
     : `지도 색은 시나리오를 구분하는 색이 아니라 ${what}입니다. 두 지도는 같은 색 범위를 씁니다.`;

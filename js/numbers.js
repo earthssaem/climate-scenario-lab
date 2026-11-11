@@ -175,7 +175,7 @@ function barsHTML(v, width) {
 
 /* ───────────── 숫자 카드 (오른쪽 그래프 패널의 제목 바로 아래) ─────────────
    머리 줄: 무엇의 값인지(기간 20년 평균 또는 연도) — 예전 그래프 위 연도 정보 줄을 여기에 합침
-   현재기후(현재 기간, 2000~2019년)는 시나리오와 무관하므로 A·B로 나누지 않고 한 값만 */
+   현재기후(현재기후 기간, 2000~2019년)는 시나리오와 무관하므로 A·B로 나누지 않고 한 값만 */
 export function renderKeybar(root, v) {
   if (!root) return;
   const { s, el, elMeta, manifest } = v;
@@ -213,6 +213,9 @@ export function renderKeybar(root, v) {
   const obsExtra = obsSeries && src !== 'none'
     ? `<span class="kb-obs"><span class="obs-dot"></span>${esc(obsLabelText(obsSeries))} ${D.isNum(obsVal) ? withUnit(fmtSigned(obsVal), '℃') : T.noData}</span>` : '';
 
+  // 현재기후 값 아래 안내: 시나리오가 갈라지는 해(전망 시작 연도)
+  const projStart = D.blockRange(el, 'projection')?.[0] ?? periods.find((p) => p.id !== 'cur')?.start;
+  const curHint = `<span class="kb-hint">${T.curHint(projStart)}</span>`;
   // "현재기후" 옆 ⓘ — 기간 버튼 옆 ⓘ와 같은 설명 창
   const curInfoBtn = `<button class="lg-info kb-info" data-action="note" data-id="cur" data-key="note-cur-kb" aria-haspopup="dialog" aria-label="현재기후 설명">ⓘ</button>`;
   const cell = (lbl, val, cls = '') => `<div class="kb-item${cls ? ` ${cls}` : ''}">${lbl}<span class="kb-val">${val}</span></div>`;
@@ -243,7 +246,7 @@ export function renderKeybar(root, v) {
     const lbl = lblText(`${T.curClimate}${compare ? '' : ` · ${nm(r)}`}${curInfoBtn}`);
     if (!D.isNum(value)) return cell(lbl, `<b class="big na">${missing(r)}</b>`, 'wide');
     const valTxt = withUnit(fmtNum(value), unit);
-    if (year == null) return cell(lbl, `<b class="big">${valTxt}</b><span class="small">(${T.curBase})</span>${badge}`, 'wide');
+    if (year == null) return cell(lbl, `<b class="big">${valTxt}</b><span class="small">(${T.curBase})</span>${badge}${curHint}`, 'wide');
     let cmp = '';
     if (D.isNum(base)) {
       const d = r1(r1(value) - r1(base));   // 화면에 보이는 두 수의 차이와 같게
@@ -251,14 +254,14 @@ export function renderKeybar(root, v) {
       cmp = d === 0 ? `현재기후 평균(${withUnit(fmtNum(base), unit)})과 같음`
         : `현재기후 평균 ${withUnit(fmtNum(base), unit)}보다 ${withUnit(fmtNum(Math.abs(d)), unit)} ${word}`;
     }
-    return cell(lbl, `<b class="yr">${year}년</b> <b class="big">${valTxt}</b>${cmp ? ` <span class="small">(${cmp})</span>` : ''}${badge}`, 'wide');
+    return cell(lbl, `<b class="yr">${year}년</b> <b class="big">${valTxt}</b>${cmp ? ` <span class="small">(${cmp})</span>` : ''}${badge}${curHint}`, 'wide');
   };
   const noneCell = (r) => (obsSeries
     ? cell(lblText(`<span class="obs-dot"></span>${esc(obsLabelText(obsSeries))}`), D.isNum(obsVal)
       ? `<b class="yr">${year}년</b> <b class="big">${withUnit(fmtSigned(obsVal), '℃')}</b><span class="small">(지점별 2000~2019 평균 대비)</span>` : `<b class="big na">${T.noData}</b>`, 'wide')
     : cell(lblText(nm(r)), `<b class="big na">${T.noData}</b>`, 'wide'));
 
-  // 하나만 보기: 고른 시나리오의 값과 현재 대비 변화량을 나란히 (A·B·차이 없음)
+  // 하나만 보기: 고른 시나리오의 값과 현재기후 대비 변화량을 나란히 (A·B·차이 없음)
   const single = s.scenMode === 'single';
   const singleCells = (m, r) => {
     const value = raw(m.id, r);
@@ -267,7 +270,7 @@ export function renderKeybar(root, v) {
     const base = D.curValue(el, r);
     const chg = D.toMode(value, base, 'chg', v.pct);
     return cell(lbl, `<b class="big">${withUnit(fmtNum(value), unit)}</b>${badge}`)
-      + cell(lblText(v.pct ? '현재 대비 변화율' : '현재 대비 변화량'), D.isNum(chg)
+      + cell(lblText(v.pct ? '현재기후 대비 변화율' : '현재기후 대비 변화량'), D.isNum(chg)
         ? `<b class="big">${withUnit(fmtSigned(chg), chgUnit)}</b>${D.isNum(base) ? `<span class="small">(현재기후 ${withUnit(fmtNum(base), unit)} 기준)${curInfoBtn}</span>` : ''}`
         : `<b class="big na">${T.noData}</b>`, 'diff');
   };
@@ -276,7 +279,7 @@ export function renderKeybar(root, v) {
     if (year != null && !D.hasAnnual(el, r)) {
       cells = cell(lblText(nm(r)), `<span class="kb-msg">${esc(periodOnlyNote(v.regionMeta(r)?.short ?? r))}</span>`, 'wide') + (B ? noteCell('—') : '');
     } else if (curLike) {
-      cells = curCell(r) + (B ? noteCell(T.curNoScen) : '');
+      cells = curCell(r);   // 현재기후는 시나리오와 무관 — 두 시나리오 차이 칸 없이, 값 아래 안내 한 줄
     } else if (year != null && src === 'none') {
       cells = noneCell(r) + (B ? noteCell(obsSeries ? T.obsNoScen : T.noData) : '');
     } else if (single) {

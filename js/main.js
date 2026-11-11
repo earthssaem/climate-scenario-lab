@@ -137,6 +137,7 @@ function handle(action, ds, el, evt) {
     case 'pick-scen': return A.setScenario(ds.slot, ds.id || null);
     case 'scen-mode': return A.setScenMode(ds.id);
     case 'scen-info': return A.toggleScenInfo();
+    case 'scen-item': return A.toggleScenItem(ds.id);
     case 'close-dialog': return A.closeDialogs();
     case 'retry-emissions': return ensureEmissions();
     case 'mode': return A.setMode(ds.id);

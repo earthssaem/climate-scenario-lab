@@ -342,7 +342,7 @@ def make_manifest():
             {"id": "cold", "name": "한파일수", "unit": "일", "kind": "days", "file": "elements/cold.json"},
         ],
         "periods": [
-            {"id": "cur", "label": "현재", "start": 2000, "end": 2019},
+            {"id": "cur", "label": "현재기후", "start": 2000, "end": 2019},
             {"id": "p1", "label": "전반기", "start": 2021, "end": 2040},
             {"id": "p2", "label": "중반기", "start": 2041, "end": 2060},
             {"id": "p3", "label": "2061~2080", "start": 2061, "end": 2080, "derived": True},

@@ -116,7 +116,7 @@ function drawMap(geo, o) {
     data-fig="${o.id}" role="button" tabindex="${o.focusable ? 0 : -1}" aria-label="${esc(o.label(p.code))}"/>`).join('');
 
   // 울릉도·독도 상자: 얇은 점선 테두리(따로 옮겨 그린 지도), 섬은 실제 모양을 키워서(너무 작은 독도는 테두리 있는 점),
-  // 섬마다 이름, 상자 아래 "울릉도·독도" + "■ (경북)" — 섬 색 = 경북 값. 섬이나 상자를 누르면 경북 선택.
+  // 섬마다 이름. 섬 색 = 경북 값. 섬이나 상자를 누르면 경북 선택.
   // 자리와 크기는 화면 px 기준으로 applyPixelScale(layoutInset)에서 정함
   const insets = G.insets.map(({ ins, owner, groups }) => {
     const [x, y, w, h] = ins.box;
@@ -128,15 +128,14 @@ function drawMap(geo, o) {
       : `<path class="isl${sel}" data-isl="${i}" d="${esc(g.d)}" data-bb="${g.x0} ${g.y0} ${g.x1} ${g.y1}" fill="${fill}" ${tap}/>`}
       <text class="pt-lb isl-name" data-isl-name="${i}" x="${g.x}" y="${g.y}" dominant-baseline="central">${esc(g.name)}</text>`).join('');
     return `<g class="inset" data-box="${x} ${y} ${w} ${h}">
-      <rect class="inset-box" x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ${tap}/>${items}
-      <text class="pt-lb inset-cap" data-cap="1" x="${x + w}" y="${y + h}" text-anchor="end" dominant-baseline="central">${esc(ins.name)}</text>
-      <rect class="cap-sw" x="${x}" y="${y + h}" width="1" height="1" fill="${fill}"/>
-      <text class="pt-lb inset-cap" data-cap="2" x="${x + w}" y="${y + h}" text-anchor="end" dominant-baseline="central">(${esc(o.name(owner))})</text>
+      <rect class="inset-box" x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ${tap} aria-label="${esc(ins.name)} (${esc(o.name(owner))})"/>${items}
     </g>`;
   }).join('');
 
-  // 선택한 지역 경계: 흰 테두리를 먼저 깔고 굵은 선 (A·B 두 지도 모두)
-  const outline = (code, cls) => (code && byCode[code] ? `<path class="sel-halo" d="${esc(byCode[code].d)}"/><path class="${cls}" d="${esc(byCode[code].d)}"/>` : '');
+  // 선택한 지역 경계 (A·B 두 지도 모두): 바깥쪽 흰색 3px + 안쪽 진회색 1.5px 두 겹.
+  // 테두리를 그린 뒤 지역 색을 한 번 더 덮어 선의 안쪽 절반을 가림 → 테두리는 경계 바깥에만, 작은 서울·광역시도 원래 색 그대로
+  const outline = (code, cls) => (code && byCode[code]
+    ? `<path class="sel-halo" d="${esc(byCode[code].d)}"/><path class="${cls}" d="${esc(byCode[code].d)}"/><path class="sel-fill" d="${esc(byCode[code].d)}" fill="${fillOf(code)}"/>` : '');
 
   // 이름표: 17개 시도 모두 늘 표시(시는 class "city"), 선택한 지역은 크고 굵게.
   // 겹치면 applyPixelScale에서 선택 > 시 > 도 순서로 자리를 잡고 뒤의 이름표를 비켜 둠
@@ -190,15 +189,6 @@ function layoutInset(g, k) {
   });
   const box = g.querySelector('.inset-box');
   box.setAttribute('x', left); box.setAttribute('y', top); box.setAttribute('width', W); box.setAttribute('height', H); box.setAttribute('rx', 3 * k);
-  // 상자 아래 두 줄: "울릉도·독도" / "■ (경북)"
-  const c1 = g.querySelector('[data-cap="1"]'); const c2 = g.querySelector('[data-cap="2"]'); const sw = g.querySelector('.cap-sw');
-  const y1 = top + H + 3 * k + 8 * k; const y2 = y1 + 16 * k;
-  c1?.setAttribute('x', right); c1?.setAttribute('y', y1);
-  if (c2) {
-    c2.setAttribute('x', right); c2.setAttribute('y', y2);
-    const w2 = c2.getComputedTextLength();
-    sw?.setAttribute('x', right - w2 - 4 * k - 10 * k); sw?.setAttribute('y', y2 - 5 * k); sw?.setAttribute('width', 10 * k); sw?.setAttribute('height', 10 * k);
-  }
 }
 
 /** 화면 픽셀 크기로 보이게: 지도 축척에 맞춰 글자·동그라미 크기를 바꿈 */
@@ -233,7 +223,8 @@ function applyPixelScale(root) {
     const rank = (t) => (t.classList.contains('sel') ? 0 : t.classList.contains('city') ? 1 : 2);
     const area = (a, b) => Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) - 0.5 * k)
       * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) - 0.5 * k);
-    const placed = [...svg.querySelectorAll('text.pt-lb, rect.inset-box, rect.cap-sw')].map((t) => t.getBBox());
+    const placed = [...svg.querySelectorAll('text.pt-lb, rect.inset-box')].map((t) => t.getBBox());
+    const home = new Map(texts.map((t) => [t, t.getBBox()]));   // 이름표 원래 자리 (선택 지역 이름표가 남의 자리를 덜 차지하게)
     texts.sort((a, b) => rank(a) - rank(b)).forEach((t) => {
       const x0 = Number(t.dataset.lx); const y0 = Number(t.dataset.ly);
       const bb0 = t.getBBox();
@@ -245,12 +236,27 @@ function applyPixelScale(root) {
         if (d <= maxD) cands.push([dx * stepX, dy * stepY, d]);
       }
       cands.sort((a, b) => a[2] - b[2]);
+      // 선택한 지역이 이름표보다 작으면(서울·세종·광역시 등) 이름표가 지역 색을 덮지 않게
+      // 지역 상자에 붙여 바로 아래·위·오른쪽·왼쪽에 둠 (그 자리가 막혔을 때만 위의 일반 후보)
+      let others = [];
+      if (rank(t) === 0) {
+        const rg = svg.querySelector(`path.rg[data-code="${t.dataset.code}"]`)?.getBBox();
+        if (rg && area(bb0, rg) > 0.5 * rg.width * rg.height) {
+          placed.push(rg);
+          others = texts.filter((u) => u !== t && rank(u) > 0).map((u) => home.get(u));
+          const g = 1.5 * k; const cx = bb0.x + bb0.width / 2; const cy = bb0.y + bb0.height / 2;
+          const below = rg.y + rg.height + g - bb0.y; const above = rg.y - g - (bb0.y + bb0.height);
+          const right = rg.x + rg.width + g - bb0.x; const left = rg.x - g - (bb0.x + bb0.width);
+          const cxr = rg.x + rg.width / 2 - cx;
+          cands.unshift([cxr, below, 0], [cxr, above, 0], [right, rg.y + rg.height / 2 - cy, 0], [left, rg.y + rg.height / 2 - cy, 0]);
+        }
+      }
       let best = null;
       for (const [dx, dy] of cands) {
         t.setAttribute('x', x0 + dx); t.setAttribute('y', y0 + dy);
         const bb = t.getBBox();
         if (bb.x < vb.x || bb.x + bb.width > vb.x + vb.width || bb.y < vb.y || bb.y + bb.height > vb.y + vb.height) continue;   // 지도 밖으로는 안 나가게
-        const cost = placed.reduce((sum, q) => sum + area(bb, q), 0);
+        const cost = placed.reduce((sum, q) => sum + area(bb, q), 0) + 0.5 * others.reduce((sum, q) => sum + area(bb, q), 0);
         if (!best || cost < best.cost) best = { dx, dy, cost };
         if (cost === 0) break;
       }
