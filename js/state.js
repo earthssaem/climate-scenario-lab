@@ -4,7 +4,8 @@
 export const DEFAULT_STATE = Object.freeze({
   element: 'tavg',
   scenA: 'ssp126',
-  scenB: 'ssp585',       // null이면 시나리오 하나만 보기
+  scenB: 'ssp585',       // 비교 시나리오 (null이면 B 선택 안 함)
+  scenMode: 'compare',   // 'compare' 두 개 비교(기본) | 'single' 하나만 보기 — 하나만 볼 때도 scenB·mapView는 기억해 두었다가 비교로 돌아오면 되살림
   showAll4: false,       // 그래프에 4개 시나리오 모두 표시
   mode: 'abs',           // 'abs' 값(기본) | 'chg' 현재 대비 변화량
   prcpUnit: 'mm',        // 강수량 변화량 단위: 'mm' | 'pct'
@@ -45,6 +46,14 @@ export function obsEffective(s, manifest) {
 }
 
 /** 규칙끼리 어긋나지 않게 상태를 정리합니다. */
+/**
+ * 화면에 그릴 때 쓰는 상태. '하나만 보기'면 B 시나리오와 차이 지도를 감춘 모습으로 보여 줌
+ * (실제 상태의 scenB·mapView는 그대로 두어 '두 개 비교'로 돌아오면 되살아남)
+ */
+export function viewState(s) {
+  return s.scenMode === 'single' ? { ...s, scenB: null, mapView: 'side' } : s;
+}
+
 export function normalize(s, manifest) {
   const n = { ...s, obsLayer: { ...s.obsLayer }, ui: { ...s.ui } };
   if (n.scenB === n.scenA) n.scenB = null;
@@ -94,7 +103,10 @@ export function createStore() {
     setScenario(slot, id) {
       const ui = { ...state.ui, picker: null };
       if (slot === 'A') {
-        if (!id || id === state.scenB) return set({ ui });
+        if (!id) return set({ ui });
+        // 하나만 보기에서 B로 기억해 둔 시나리오를 고르면 둘을 바꿔 둠 (비교로 돌아와도 A ≠ B)
+        if (id === state.scenB && state.scenMode === 'single') return set({ scenA: id, scenB: state.scenA, ui });
+        if (id === state.scenB) return set({ ui });
         set({ scenA: id, ui });
       } else {
         if (id === state.scenA) return set({ ui });
@@ -102,6 +114,8 @@ export function createStore() {
       }
     },
     setAll4: (on) => set({ showAll4: !!on && !state.regionB }),
+    /** [하나만 보기 | 두 개 비교] — 지역·기간·기후요소·표시 방식은 그대로 */
+    setScenMode: (mode) => set({ scenMode: mode === 'single' ? 'single' : 'compare', ui: { ...state.ui, picker: null, mapTab: 'A' } }),
     setMode: (mode) => set({ mode }),
     setPrcpUnit: (prcpUnit) => set({ prcpUnit }),
     /** 지도 타일을 눌렀을 때 */

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as D from '../js/data.js';
-import { createStore, DEFAULT_STATE } from '../js/state.js';
+import { createStore, DEFAULT_STATE, viewState } from '../js/state.js';
 import { mapScale, rangeOf } from '../js/scales.js';
 
 const PERIODS = [
@@ -156,6 +156,40 @@ await test('상태: A·B 같은 시나리오 금지, 지역 비교 중 4개 모�
   assert.equal(st.get().year, null);
   st.actions.reset();
   assert.deepEqual(st.get(), JSON.parse(JSON.stringify(DEFAULT_STATE)));
+});
+
+await test('하나만 보기: B·차이 지도는 감춰 그리고, 비교로 돌아오면 그대로 되살림', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../data/manifest.json', import.meta.url)));
+  const st = createStore();
+  st.setManifest(manifest);
+  assert.equal(st.get().scenMode, 'compare');                 // 기본은 두 개 비교
+  st.actions.setMapView('diff');
+  st.actions.tapRegion('22');
+  st.actions.setPeriod('p1');
+  st.actions.setElement('heat');
+  st.actions.setScenMode('single');
+  let s = st.get();
+  assert.equal(s.scenB, 'ssp585');                             // 실제 상태에는 B를 기억
+  assert.equal(s.mapView, 'diff');
+  const v = viewState(s);
+  assert.equal(v.scenB, null);                                 // 그릴 때는 B 없음
+  assert.equal(v.mapView, 'side');                             // 차이 지도 대신 지도 한 장
+  assert.deepEqual([s.regionA, s.period, s.element], ['22', 'p1', 'heat']);   // 지역·기간·요소 유지
+  // 하나만 보기에서 B로 기억해 둔 시나리오를 고르면 맞바꿈 → 비교로 돌아와도 A ≠ B
+  st.actions.setScenario('A', 'ssp585');
+  s = st.get();
+  assert.deepEqual([s.scenA, s.scenB], ['ssp585', 'ssp126']);
+  st.actions.setScenMode('compare');
+  s = st.get();
+  assert.equal(viewState(s).scenB, 'ssp126');
+  assert.equal(viewState(s).mapView, 'diff');                  // 이전 비교 화면 그대로
+  assert.deepEqual([s.regionA, s.period, s.element], ['22', 'p1', 'heat']);
+  // 4개 모두 보기는 따로 유지
+  st.actions.setAll4(true);
+  st.actions.setScenMode('single');
+  assert.equal(st.get().showAll4, true);
+  st.actions.reset();
+  assert.equal(st.get().scenMode, 'compare');
 });
 
 await test('지도 색 범위: [최솟값, 최댓값] 고정, 0은 언제나 흰색', () => {

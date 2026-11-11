@@ -92,6 +92,7 @@ function tableHTML(v) {
 
 function barsHTML(v, width) {
   const { s, el, elMeta, manifest } = v;
+  if (s.scenMode === 'single') return '';   // 하나만 보기: 시나리오 차이 막대는 두 개 비교에서만
   if (!s.scenB) return `<p class="bars-title">기간별 시나리오 차이 (B − A, ${T.appCalc})</p><p class="note">${T.needB}</p>`;
   const A = v.scenMeta(s.scenA);
   const B = v.scenMeta(s.scenB);
@@ -255,6 +256,19 @@ export function renderKeybar(root, v) {
       ? `<b class="yr">${year}년</b> <b class="big">${withUnit(fmtSigned(obsVal), '℃')}</b><span class="small">(지점별 2000~2019 평균 대비)</span>` : `<b class="big na">${T.noData}</b>`, 'wide')
     : cell(lblText(nm(r)), `<b class="big na">${T.noData}</b>`, 'wide'));
 
+  // 하나만 보기: 고른 시나리오의 값과 현재 대비 변화량을 나란히 (A·B·차이 없음)
+  const single = s.scenMode === 'single';
+  const singleCells = (m, r) => {
+    const value = raw(m.id, r);
+    const lbl = `<span class="kb-lbl"><span class="sdot" style="--c:${esc(m.color)}"></span>${esc(m.label)} · 값</span>`;
+    if (!D.isNum(value)) return cell(lbl, `<b class="big na">${missing(r)}</b>`);
+    const base = D.curValue(el, r);
+    const chg = D.toMode(value, base, 'chg', v.pct);
+    return cell(lbl, `<b class="big">${withUnit(fmtNum(value), unit)}</b>${badge}`)
+      + cell(lblText(v.pct ? '현재 대비 변화율' : '현재 대비 변화량'), D.isNum(chg)
+        ? `<b class="big">${withUnit(fmtSigned(chg), chgUnit)}</b>${D.isNum(base) ? `<span class="small">(현재기후 ${withUnit(fmtNum(base), unit)} 기준)</span>` : ''}`
+        : `<b class="big na">${T.noData}</b>`, 'diff');
+  };
   const rowFor = (r, i) => {
     let cells;
     if (year != null && !D.hasAnnual(el, r)) {
@@ -263,6 +277,8 @@ export function renderKeybar(root, v) {
       cells = curCell(r) + (B ? noteCell(T.curNoScen) : '');
     } else if (year != null && src === 'none') {
       cells = noneCell(r) + (B ? noteCell(obsSeries ? T.obsNoScen : T.noData) : '');
+    } else if (single) {
+      cells = singleCells(A, r);
     } else {
       cells = scenCell('A', A, r) + (B ? scenCell('B', B, r) + diffCell(r) : '');
     }

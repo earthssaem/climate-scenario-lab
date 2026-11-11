@@ -104,7 +104,7 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .badge.b { background: #fff; color: var(--ink); border: 2px dashed var(--ink); }
 
 /* ───── 2줄: 공통 조건 — 시나리오 A vs B | 기간 (지도·그래프 모두에 적용) ───── */
-.cond-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 40px; padding: 6px var(--gap); }
+.cond-row { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 40px; padding: 6px var(--gap); }   /* relative: 화면에서만 숨긴 글자가 줄 밖으로 나가 페이지를 넓히지 않게 */
 .cg { display: flex; align-items: center; gap: 8px; }
 .ctl-label { font-size: 14px; font-weight: 700; color: var(--muted); white-space: nowrap; margin-right: 4px; }
 .vs { color: var(--muted); font-weight: 600; font-size: 14px; margin: 0 4px; }
@@ -118,6 +118,8 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .scen-btn .sl.none { color: var(--muted); font-weight: 600; }
 .scen-btn .caret { color: #8a919d; font-size: 14px; margin-left: 2px; }
 /* 기간: 가벼운 선택 버튼 — 고른 기간만 흰 바탕 + 진한 테두리 */
+/* [하나만 보기 | 두 개 비교]: 시나리오 고르기 바로 앞 */
+.scen-mode button { padding: 0 11px; font-size: 15px; }
 .period-tabs { display: inline-flex; gap: 2px; }
 .period-tabs button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: #5f6878; font-size: 16px; font-weight: 700; white-space: nowrap; }
 .period-tabs button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--ink); background: rgba(28, 35, 48, 0.05); }
@@ -393,6 +395,17 @@ footer .hub:hover{color:var(--ink);text-decoration-color:currentColor}
   .el-tabs button { min-height: 48px; }
   .stage { grid-template-columns: minmax(0, 1fr); }
   .chart-wrap { min-height: 0; height: 340px; flex: none; }
+  /* 지도 한 장(하나만 보기·차이 지도)은 세로 화면에서 너무 길어지지 않게 */
+  .maps.single .map-svg { max-height: min(620px, 62vh); }
+}
+/* 1365px 이하(디벗 1280×800·1340×800 등): [하나만 보기|두 개 비교]가 들어갈 자리 — "시나리오"·"기간" 글자는 화면에서만 숨기고 간격을 줄임 */
+@media (max-width: 1365px) {
+  .cond-row { gap: 6px 24px; }
+  .cond-row .ctl-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .cond-row .cg { gap: 6px; }
+  .scen-mode button { padding: 0 9px; }
+  .period-tabs button { padding: 0 10px; }
+  .year-chip { padding-left: 12px; }
 }
 /* 1199px 이하(1024×768 가로, 세로 태블릿, 휴대폰): 공통 조건을 짧게 — "시나리오"·"기간" 글자는 화면에서만 숨김(읽기 도구에는 남김).
    1024 가로는 한 줄에, 휴대폰은 A·B가 한 화면에 보이고 기간은 옆으로 밀어서 */

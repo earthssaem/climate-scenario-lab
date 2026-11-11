@@ -198,7 +198,9 @@ export function renderMap(root, v) {
   } else {
     figs = [{ key: 'A', scen: A, vals: valsA }];
     if (B) figs.push({ key: 'B', scen: B, vals: valsB });
-    figs.forEach((f) => { f.title = `<span class="ab">${f.key}</span><span class="sdot" style="--c:${esc(f.scen.color)}"></span>${esc(f.scen.label)}`; });
+    // 하나만 보기: A·B 표시 없이 시나리오 이름만
+    const single = s.scenMode === 'single';
+    figs.forEach((f) => { f.title = `${single ? '' : `<span class="ab">${f.key}</span>`}<span class="sdot" style="--c:${esc(f.scen.color)}"></span>${esc(f.scen.label)}`; });
   }
   const useTabs = which === 'value' && figs.length === 2 && narrow;
   const visible = useTabs ? figs.filter((f) => f.key === (s.ui.mapTab === 'B' ? 'B' : 'A')) : figs;
@@ -207,7 +209,7 @@ export function renderMap(root, v) {
   const pop = s.ui.popup;
   const popText = (c) => {
     if (which === 'diff') return `${esc(name(c))} · B−A ${esc(message ? '—' : fmt(D.diffBA(valsA[c], valsB[c])))}`;
-    const parts = [`${esc(name(c))}`, `A ${esc(message ? '—' : fmt(valsA[c]))}`];
+    const parts = [`${esc(name(c))}`, `${s.scenMode === 'single' ? esc(A.label) : 'A'} ${esc(message ? '—' : fmt(valsA[c]))}`];
     if (B) parts.push(`B ${esc(message ? '—' : fmt(valsB[c]))}`);
     return parts.join(' · ');
   };
@@ -256,7 +258,7 @@ export function renderMap(root, v) {
   const lowWord = !isDiv || scale.min < 0 ? `<span>← ${esc(scale.low)}</span>` : '<span></span>';
   const highWord = !isDiv || scale.max > 0 ? `<span>${esc(scale.high)} →</span>` : '<span></span>';
   const legend = message ? `<div class="legend empty"></div>` : `<div class="legend${zeroIn ? ' has-zero' : ''}">
-    <span class="lg-title"><span class="lg-name">${lgTitle}${lgTitle === '공통 범례' ? `<button class="lg-info" data-action="note" data-id="legend" data-key="note-legend" aria-haspopup="dialog" aria-label="지도 색 설명: ${esc(legendNote(v))}">ⓘ</button>` : ''}</span>${scale.annualRange ? `<span class="lg-tag">연도 보기 색 범위</span>` : ''}<span class="u">${esc(unit)} · ${which === 'diff' ? (v.pct ? '변화율 차이' : '시나리오 차이') : esc(modeName(s.mode, v.pct))}</span></span>
+    <span class="lg-title"><span class="lg-name">${lgTitle}${which !== 'diff' ? `<button class="lg-info" data-action="note" data-id="legend" data-key="note-legend" aria-haspopup="dialog" aria-label="지도 색 설명: ${esc(legendNote(v))}">ⓘ</button>` : ''}</span>${scale.annualRange ? `<span class="lg-tag">연도 보기 색 범위</span>` : ''}<span class="u">${esc(unit)} · ${which === 'diff' ? (v.pct ? '변화율 차이' : '시나리오 차이') : esc(modeName(s.mode, v.pct))}</span></span>
     <span class="lg-end">${tick(scale.min)}</span>
     <span class="lg-bar-wrap"><span class="bar" style="background:${scale.gradient}">${zeroMark}</span>
       <span class="words">${lowWord}${highWord}</span></span>
@@ -276,7 +278,7 @@ export function renderMap(root, v) {
   root.innerHTML = `
     <div class="map-tools">
       <div class="tools-left">${regionToolsHTML(v)}</div>
-      ${useTabs ? '' : viewSeg}
+      ${useTabs || s.scenMode === 'single' ? '' : viewSeg}
     </div>
     ${useTabs ? `<div class="map-tabs-row">${tabs}${viewSeg}</div>` : ''}
     <div class="maps${visible.length === 1 ? ' single' : ''}${which === 'diff' ? ' big' : ''}">${figHTML}</div>

@@ -55,14 +55,16 @@ function fullscreenButton() {
 function scenButton(v, slot) {
   const id = slot === 'A' ? v.s.scenA : v.s.scenB;
   const m = id ? v.scenMeta(id) : null;
+  const single = v.s.scenMode === 'single';   // 하나만 보기: A·B 표시 없이 시나리오 하나
   return `<button class="scen-btn" data-action="picker" data-slot="${slot}" data-key="picker-${slot}" aria-haspopup="dialog"
-    aria-label="시나리오 ${slot}: ${m ? esc(m.label) : T.noneScenario} — 바꾸기"><span class="ab">${slot}</span>${m
+    aria-label="시나리오${single ? '' : ` ${slot}`}: ${m ? esc(m.label) : T.noneScenario} — 바꾸기">${single ? '' : `<span class="ab">${slot}</span>`}${m
     ? `<span class="sdot" style="--c:${esc(m.color)}"></span><span class="sl">${esc(m.label)}</span>` : `<span class="sl none">${T.noneScenario}</span>`}<span class="caret" aria-hidden="true">▾</span></button>`;
 }
 
 export function renderCondRow(root, v) {
   const { s, manifest } = v;
   if (!manifest) { root.innerHTML = ''; return; }
+  const single = s.scenMode === 'single';
   // 기간 버튼은 연도 보기 중에도 그대로 두고, "2014년 보기 ✕"를 옆에 덧붙임 (기간을 누르면 연도 보기가 풀림)
   const yearChip = s.year != null
     ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>` : '';
@@ -78,7 +80,11 @@ export function renderCondRow(root, v) {
   root.innerHTML = `
     <div class="cg" role="group" aria-labelledby="lblScen">
       <span class="ctl-label" id="lblScen">시나리오</span>
-      ${scenButton(v, 'A')}<span class="vs">vs</span>${scenButton(v, 'B')}
+      <div class="seg scen-mode" role="group" aria-label="시나리오 보기 방식">
+        <button data-action="scen-mode" data-id="single" data-key="sm-single" ${pressed(single)}>하나만 보기</button>
+        <button data-action="scen-mode" data-id="compare" data-key="sm-compare" ${pressed(!single)}>두 개 비교</button>
+      </div>
+      ${single ? scenButton(v, 'A') : `${scenButton(v, 'A')}<span class="vs">vs</span>${scenButton(v, 'B')}`}
     </div>
     <div class="cg" role="group" aria-labelledby="lblPeriod">
       <span class="ctl-label" id="lblPeriod">기간</span>
@@ -190,7 +196,7 @@ function pickerHTML(v) {
   const none = slot === 'B' ? `<li><button class="scen-opt none" data-action="pick-scen" data-slot="B" data-id="" data-key="opt-none" ${pressed(!s.scenB)}>
       <span class="so-text"><span class="so-title"><b>${T.noneScenario}</b></span><span class="so-desc">${T.noneScenarioDesc}</span></span></button></li>` : '';
   const retry = v.emStatus === 'error' ? `<button class="chip ghost small" data-action="retry-emissions">${T.retry}</button>` : '';
-  return dialogShell(`시나리오 고르기 <span class="slot-tag">${slot}</span>`, `
+  return dialogShell(`시나리오 고르기${s.scenMode === 'single' ? '' : ` <span class="slot-tag">${slot}</span>`}`, `
       <p class="dlg-intro">${T.pickerIntro}</p>
       <ul class="scen-list">${items}${none}</ul>
       <p class="caption"><span class="cap-swatch" aria-hidden="true"></span>미니 그래프: ${T.emissionCaption} ${retry}</p>
@@ -250,7 +256,9 @@ function noteHTML(v) {
 export function legendNote(v) {
   const { s, elMeta, pct } = v;
   const what = s.mode === 'abs' ? `각 지역의 ${elMeta.name} 값` : pct ? '현재 대비 변화율' : elMeta.kind === 'temp' ? '현재 대비 상승량' : '현재 대비 변화량';
-  return `지도 색은 시나리오를 구분하는 색이 아니라 ${what}입니다. 두 지도는 같은 색 범위를 씁니다.`;
+  return v.s.scenMode === 'single'
+    ? `지도 색은 시나리오를 구분하는 색이 아니라 ${what}입니다. 색 범위는 시나리오·기간을 바꿔도 그대로라 서로 견주어 볼 수 있습니다.`
+    : `지도 색은 시나리오를 구분하는 색이 아니라 ${what}입니다. 두 지도는 같은 색 범위를 씁니다.`;
 }
 
 /** 푸터 [자료 출처 ⓘ] 창: manifest.sources와 지도 파일(sido.json)의 출처·출처표시 문구를 그대로 */

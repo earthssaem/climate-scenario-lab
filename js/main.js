@@ -1,6 +1,6 @@
 // main.js — 초기화, 상태 변경 → 전체 다시 그리기
 // 모든 화면 영역은 같은 상태(store)로 한꺼번에 다시 그립니다. 각 영역은 상태를 따로 들고 있지 않습니다.
-import { createStore, obsAllowed, obsEffective } from './state.js';
+import { createStore, obsAllowed, obsEffective, viewState } from './state.js';
 import * as D from './data.js';
 import { T } from './text.js';
 import { renderTopControls, renderCondRow, renderDialogs } from './ui-controls.js';
@@ -39,7 +39,7 @@ function fixPeriodFor(id) {
 /* ───────────── 화면 모델 ───────────── */
 
 function buildView() {
-  const s = store.get();
+  const s = viewState(store.get());   // 하나만 보기면 B를 감춘 상태로 그림
   const v = { s, manifest };
   if (!manifest) return v;
   const byId = (arr, key = 'id') => Object.fromEntries(arr.map((x) => [x[key], x]));
@@ -135,6 +135,7 @@ function handle(action, ds, el, evt) {
     case 'note': lastOpener = el?.dataset.key || ''; return A.openNote(ds.id);
     case 'picker': lastOpener = el?.dataset.key || `picker-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
     case 'pick-scen': return A.setScenario(ds.slot, ds.id || null);
+    case 'scen-mode': return A.setScenMode(ds.id);
     case 'close-dialog': return A.closeDialogs();
     case 'retry-emissions': return ensureEmissions();
     case 'mode': return A.setMode(ds.id);
