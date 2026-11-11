@@ -275,13 +275,15 @@ function noteLine(v, b) {
   const allPeriodOnly = b.periodOnly.length === b.regions.length;
   if (allPeriodOnly) parts.push(`<span class="gk">${esc(T.graphLinePeriodOnly)}</span>`);
   else {
-    const cols = [s.scenA, s.scenMode === 'single' ? null : s.scenB].filter(Boolean)
-      .map((id) => manifest.scenarios.find((m) => m.id === id)?.color).filter(Boolean);
-    const c1 = cols[0] ?? '#888888'; const c2 = cols[1] ?? c1;
+    // 시나리오 견본: 그래프에 그린 시나리오마다 짧은 선 하나 (기본 A·B 두 색, 「4개 모두 보기」면 네 색)
+    const all4 = s.showAll4 && !s.regionB;
+    const ids = all4 ? manifest.scenarios.map((m) => m.id) : [s.scenA, s.scenMode === 'single' ? null : s.scenB].filter(Boolean);
+    const cols = ids.map((id) => manifest.scenarios.find((m) => m.id === id)?.color).filter(Boolean);
+    const scenSw = `<span class="gk-sws" aria-hidden="true">${cols.map((c) => `<span class="gk-sw sline" style="--c:${esc(c)}"></span>`).join('')}</span>`;
     if (b.obsSeries) parts.push(key(sw('obs'), T.graphKeyObs));
     parts.push(key(sw('cur'), T.graphKeyCur));
     parts.push(key(sw('band'), T.graphKeyBand));
-    parts.push(key(sw('scen', `--c1:${esc(c1)};--c2:${esc(c2)}`), T.graphKeyScen));
+    parts.push(key(scenSw, T.graphKeyScen));
     if (s.year == null) parts.push(key(sw('box'), T.graphKeyShade));
     if (b.trendShown) parts.push(`<span class="gk">${esc(T.graphLineTrend)}</span>`);
   }
