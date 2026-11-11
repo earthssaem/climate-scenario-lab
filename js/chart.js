@@ -135,11 +135,20 @@ function build(v) {
     const cv = (D.seriesOf(el, 'current', lineRegions[0])?.values ?? []).map((x) => D.toMode(x, base, s.mode, v.pct)).filter(D.isNum);
     if (cv.length) {
       const names = lineRegions.map((r) => v.regionMeta(r)?.short ?? r).join('·');
-      // 관측을 켜서 x축이 1912년부터면 선 끝(2019년)에 맞춰 왼쪽으로, 아니면 선 시작(2000년)에서 오른쪽으로
+      // 관측을 켜서 x축이 1912년부터면 선 끝(2019년)에 맞춰 왼쪽 위로 (관측 점은 대개 아래쪽).
+      // 아니면 선 시작(2000년)에서 오른쪽으로 뻗으므로, 가까운 미래(2021~2045) 전망선이 없는 쪽(위/아래)에 둠
       const leftward = !!obsSeries;
+      let above = true;
+      if (!leftward) {
+        const near = [s.scenA, s.scenB].filter(Boolean).flatMap((id) => (D.seriesOf(el, id, lineRegions[0])?.values ?? [])
+          .slice(0, 25).map((x) => D.toMode(x, base, s.mode, v.pct))).filter(D.isNum);
+        const curMid = cv.reduce((t, x) => t + x, 0) / cv.length;
+        const nearMid = near.length ? near.reduce((t, x) => t + x, 0) / near.length : curMid;
+        above = nearMid < curMid;   // 전망이 현재보다 위로 가면 이름표는 아래에
+      }
       ann.curLabel = {
-        type: 'label', xValue: leftward ? curRange[1] + 0.5 : curRange[0], yValue: Math.max(...cv),
-        position: { x: leftward ? 'end' : 'start', y: 'end' }, yAdjust: -7,
+        type: 'label', xValue: leftward ? curRange[1] + 0.5 : curRange[0], yValue: above ? Math.max(...cv) : Math.min(...cv),
+        position: { x: leftward ? 'end' : 'start', y: above ? 'end' : 'start' }, yAdjust: above ? -7 : 7,
         content: [`현재기후 · ${names} 평균(${curRange[0]}~${curRange[1]})`], color: C_CUR, font: { size: 14, weight: '800' },
         backgroundColor: 'rgba(255, 255, 255, 0.82)', borderColor: C_CUR, borderWidth: 1, borderRadius: 6, padding: { x: 6, y: 3 },
         drawTime: 'beforeDatasetsDraw',
@@ -192,18 +201,22 @@ function toolsHTML(v) {
   const { s } = v;
   const series = v.stations?.series ?? {};
   const obsDisabled = !v.obsAllowed || !v.stations;
-  const all4Disabled = !!s.regionB;
   const opts = Object.entries(series).map(([k, val]) => `<option value="${esc(k)}" ${k === s.obsLayer.series ? 'selected' : ''}>${esc(val.name)}</option>`).join('');
   return `
-    <label class="check${all4Disabled ? ' disabled' : ''}" title="${all4Disabled ? T.all4Disabled : ''}">
-      <input type="checkbox" data-change="all4" data-key="all4" ${s.showAll4 && !all4Disabled ? 'checked' : ''} ${all4Disabled ? 'disabled' : ''}>
-      <span>4개 모두</span></label>
     <label class="check${obsDisabled ? ' disabled' : ''}"><input type="checkbox" data-change="obs-on" data-key="obs-on"
-      ${v.obsOn ? 'checked' : ''} ${obsDisabled ? 'disabled' : ''}><span>관측 겹쳐 보기</span></label>
-    <select data-change="obs-series" data-key="obs-series" aria-label="관측 자료 고르기" ${obsDisabled || !s.obsLayer.on ? 'disabled' : ''}>${opts}</select>
+      ${v.obsOn ? 'checked' : ''} ${obsDisabled ? 'disabled' : ''}><span>과거 관측 보기(1912~)</span></label>
+    ${v.obsOn ? `<select data-change="obs-series" data-key="obs-series" aria-label="관측 자료 고르기">${opts}</select>` : ''}
     <label class="check"><input type="checkbox" data-change="period-bars" data-key="period-bars" ${s.periodBars ? 'checked' : ''}>
       <span>20년 평균</span></label>
     <button class="icon-btn" data-action="graph-info" data-key="graph-info" aria-haspopup="dialog" aria-label="그래프 읽는 법">ⓘ</button>`;
+}
+
+/** 그래프 제목: 조건을 모두 담아 화면 캡처의 그림 설명이 되게 ("서울 · 평균기온 · 현재 대비 변화량") */
+export function chartTitle(v) {
+  const { s } = v;
+  const nm = (c) => v.regionMeta(c)?.short ?? c;
+  const where = s.regionB ? `${nm(s.regionA)}·${nm(s.regionB)} 비교` : nm(s.regionA);
+  return `${where} · ${v.elMeta.name} · ${modeName(s.mode, v.pct)}`;
 }
 
 /** 그래프 아래 한 줄 — 지금 상황에 맞는 짧은 문장 하나 */
@@ -218,7 +231,7 @@ function noteLine(v, b) {
     if (b.allBarsShown) parts.push(T.graphLineBars);
     else if (b.selBarsShown) parts.push(T.graphLineSelBar);
   }
-  if (!v.obsAllowed) parts.push(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`);
+  if (s.obsLayer.on && !v.obsAllowed) parts.push(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`);
   if (s.regionB) parts.push('지역 비교 중에는 4개 모두를 쓸 수 없어요');
   return parts.join(' · ');
 }
@@ -265,57 +278,13 @@ function yearStripHTML(v, b) {
     ${src === 'projection' ? `<p class="fc">${T.notWeather}</p>` : ''}`;
 }
 
-/* ───────────── 기간 띠 (x축과 같은 위치) ───────────── */
-
-function placePeriodBand(root) {
-  const band = root.querySelector('.period-band');
-  if (!band || !chart || !lastView) return;
-  const sx = chart.scales.x;
-  const { periods } = lastView.manifest;
-  const s = lastView.s;
-  // 띠와 그래프 캔버스의 왼쪽 끝 차이 (둘 다 같은 카드 안)
-  const offset = chart.canvas.getBoundingClientRect().left - band.getBoundingClientRect().left;
-  const cells = periods.map((p) => {
-    const x0 = Math.max(sx.left, sx.getPixelForValue(p.start - 0.5));
-    const x1 = Math.min(sx.right, sx.getPixelForValue(p.end + 0.5));
-    return { p, x0, w: x1 - x0 };
-  });
-  // x축 위치에 맞춘 칸이 누르기에 너무 좁으면(44px 미만) 그래프 폭에 같은 너비로 나란히 놓고,
-  // 위치가 맞지 않는 대신 칸마다 연도 범위를 함께 적음 (선택 구간은 그래프 음영으로도 보임)
-  const aligned = cells.every((c) => c.w >= 44);
-  band.classList.toggle('compact', !aligned);
-  const btn = (p, extra, inner) => {
-    const off = p.derived && !lastView.derivedOk(p);
-    const full = p.derived ? `${p.label}*` : p.label;
-    return `<button class="pb" data-action="period" data-id="${esc(p.id)}" data-key="pb-${esc(p.id)}" ${off ? 'disabled' : ''}
-      aria-pressed="${s.year == null && p.id === s.period}" ${extra} aria-label="${esc(full)} ${p.start}~${p.end}년">${inner}</button>`;
-  };
-  if (!aligned) {
-    const bandW = band.getBoundingClientRect().width;
-    band.style.paddingLeft = `${Math.max(0, offset + sx.left)}px`;
-    band.style.paddingRight = `${Math.max(0, bandW - (offset + sx.right))}px`;
-    band.innerHTML = cells.map(({ p }) => btn(p, '',
-      `<span class="pn">${esc(p.derived ? `${T.appCalc}*` : p.label)}</span><span class="yrs">${p.start}~<wbr>${p.end}</span>`)).join('');
-    return;
-  }
-  band.style.paddingLeft = '';
-  band.style.paddingRight = '';
-  band.innerHTML = cells.map(({ p, x0, w }) => {
-    const full = p.derived ? `${p.label}*` : p.label;
-    const short = p.derived ? `${p.start % 100}~${p.end % 100}*` : p.label;
-    const text = w >= full.length * 9 + 10 ? full : short;
-    return btn(p, `style="left:${offset + x0 + 1}px;width:${w - 2}px"`, esc(text));
-  }).join('');
-}
-
 /* ───────────── 그리기 ───────────── */
 
 function skeleton(root) {
   root.innerHTML = `
-    <div class="chart-tools"></div>
+    <div class="chart-head"><h2 class="chart-title" id="chartTitle"></h2><div class="chart-tools"></div></div>
     <div class="year-strip" hidden></div>
     <div class="chart-wrap"><canvas role="img" aria-label="연도별 값 그래프"></canvas><div class="in-legend"></div></div>
-    <div class="period-band" role="group" aria-label="기간 선택 (그래프 x축과 같은 위치)"></div>
     <p class="graph-note"></p>`;
   root.dataset.built = '1';
 }
@@ -342,6 +311,7 @@ export function renderChart(root, v, actions) {
   const { s } = v;
   const b = build(v);
 
+  root.querySelector('.chart-title').textContent = chartTitle(v);
   root.querySelector('.chart-tools').innerHTML = toolsHTML(v);
   const wrap = root.querySelector('.chart-wrap');
   wrap.classList.toggle('is-mock', !!v.mock);
@@ -385,7 +355,6 @@ export function renderChart(root, v, actions) {
           actionsRef?.setYear(Math.min(sx.max, Math.max(sx.min, year)));
         },
       },
-      plugins: [{ id: 'periodBand', afterRender: () => placePeriodBand(root) }],
     });
   }
   chart.data.datasets = b.datasets;
@@ -399,7 +368,6 @@ export function renderChart(root, v, actions) {
   o.plugins.annotation.annotations = b.ann;
   chart.resize();
   chart.update('none');
-  placePeriodBand(root);
 
   root.querySelector('.graph-note').innerHTML = noteLine(v, b);
   root.querySelector('canvas').setAttribute('aria-label', `${v.elMeta.name} 연도별 그래프, ${b.xMin}~${b.xMax}년, ${yTitle}`);

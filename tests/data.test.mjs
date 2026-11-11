@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as D from '../js/data.js';
 import { createStore, DEFAULT_STATE } from '../js/state.js';
+import { mapScale, rangeOf } from '../js/scales.js';
 
 const PERIODS = [
   { id: 'cur', start: 2000, end: 2019 },
@@ -143,13 +144,38 @@ await test('상태: A·B 같은 시나리오 금지, 지역 비교 중 4개 모�
   st.actions.setMapView('diff');
   st.actions.setScenario('B', null);
   assert.equal(st.get().mapView, 'side');
+  // 과거 관측이 꺼져 있으면(기본) 1912~1999 연도 보기를 고를 수 없음
+  st.actions.setYear(1960);
+  assert.equal(st.get().year, null);
   // 관측을 쓸 수 없는 조건이 되면 1912~1999 연도 보기는 풀림
+  st.actions.setObsOn(true);
   st.actions.setYear(1960);
   assert.equal(st.get().year, 1960);
   st.actions.setMode('abs');
   assert.equal(st.get().year, null);
   st.actions.reset();
   assert.deepEqual(st.get(), JSON.parse(JSON.stringify(DEFAULT_STATE)));
+});
+
+await test('지도 색 범위: [최솟값, 최댓값] 고정, 0은 언제나 흰색', () => {
+  assert.deepEqual(rangeOf([1.1, 6.7]), [1.1, 6.7]);
+  assert.deepEqual(rangeOf(3), [-3, 3]);               // 예전 대칭 형식
+  const el = { scale: { period: { abs: [10, 20], chg: [1.1, 6.7], diff: [-4.3, 4.3] }, annual: { chg: [-0.9, 8] } } };
+  const v = (mode, year = null) => ({ s: { mode, year }, elMeta: { id: 'tavg', kind: 'temp' }, el, pct: false });
+  const one = mapScale(v('chg'), 'value');              // 최솟값 ≥ 0 → 0부터 한쪽 방향
+  assert.equal(one.min, 0);
+  assert.equal(one.max, 6.7);
+  assert.equal(one.color(0), '#ffffff');
+  const ann = mapScale(v('chg', 2057), 'value');        // 연도 보기: 연별 범위, 0 위치는 비대칭
+  assert.equal(ann.min, -0.9);
+  assert.equal(ann.max, 8);
+  assert.ok(Math.abs(ann.zero - (0.9 / 8.9) * 100) < 1e-9);
+  assert.equal(ann.color(0), '#ffffff');
+  assert.ok(ann.annualRange);
+  const d = mapScale(v('chg'), 'diff');
+  assert.deepEqual([d.min, d.max, d.zero], [-4.3, 4.3, 50]);
+  const abs = mapScale(v('abs'), 'value');              // 값 모드: 한쪽 방향 그대로
+  assert.deepEqual([abs.type, abs.min, abs.max], ['seq', 10, 20]);
 });
 
 await test('불러오기: 같은 파일 동시 요청은 한 번만, 실패하면 다시 시도 가능', async () => {

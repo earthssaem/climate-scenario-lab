@@ -50,9 +50,8 @@
    - 2061~2080(p3)은 공식값으로 넣지 않음 (앱이 decades 2061·2071의 평균으로 계산)
    모두 소수 1자리로 반올림.
 
-6) scale (지도 색 범위) = 4개 시나리오 × 모든 기간(현재·전반기·중반기·2061~2080·후반기) × 모든 지역 기준
-   abs [최솟값, 최댓값], chg 최대 |변화량|, diff 최대 |시나리오 차이|, (강수량만) pct, pctDiff
-   보기 좋은 단위로 바깥쪽 반올림.
+6) scale (지도 색 범위)는 실제 자료와 같은 방법으로 tools/rescale.py가 계산
+   (4개 시나리오 × 모든 기간/연도 × 모든 지역의 [최솟값, 최댓값], 기간용 period·연도 보기용 annual 따로)
 
 7) 장기관측(지점, 1912~2025): 값 = 지점 기울기 × (연도 − 2009.5) + 흔들림(±0.45)
    → 각 지점의 2000~2019 평균을 0으로 맞춘 편차. 6개 지점 평균 = 6개 지점 값의 평균.
@@ -64,6 +63,7 @@
 """
 
 import json
+import sys
 import random
 from pathlib import Path
 
@@ -264,55 +264,6 @@ def make_element(eid, cfg):
         official["decades"] = {s: {str(d): {c: avg_years(projection[s][c], 2021, d, d + 9) for c in CODES}
                                    for d in DECADES} for s in SCENARIOS}
 
-    # 기간값 모음 (scale 계산용, p3는 앱과 같은 방식: 10년 공식값 평균)
-    def pvals(s, c):
-        out = {"cur": official["cur"][c]}
-        for pid in PERIODS:
-            out[pid] = official["periods"][s][pid][c]
-        if cfg["decades"]:
-            d = official["decades"][s]
-            a, b = d["2061"][c], d["2071"][c]
-            out["p3"] = None if a is None or b is None else (a + b) / 2
-        return out
-
-    absv, chg, pct, diff, pdiff = [], [], [], [], []
-    for c in CODES:
-        cur = official["cur"][c]
-        if cur is None:
-            continue
-        per = {s: pvals(s, c) for s in SCENARIOS}
-        for s in SCENARIOS:
-            for pid, v in per[s].items():
-                if v is None:
-                    continue
-                absv.append(v)
-                chg.append(abs(v - cur))
-                if cur:
-                    pct.append(abs((v - cur) / cur * 100))
-        for i, s1 in enumerate(SCENARIOS):
-            for s2 in SCENARIOS[i + 1:]:
-                for pid in per[s1]:
-                    if pid == "cur":
-                        continue
-                    a, b = per[s1][pid], per[s2][pid]
-                    if a is None or b is None:
-                        continue
-                    diff.append(abs(b - a))
-                    if cur:
-                        pdiff.append(abs((b - a) / cur * 100))
-
-    step = {"temp": (0.5, 0.5), "prcp": (50.0, 10.0), "days": (1.0, 1.0)}[cfg["kind"]]
-    scale = {
-        "abs": [r1(nice_floor(min(absv), step[0])), r1(nice_ceil(max(absv), step[0]))],
-        "chg": r1(nice_ceil(max(chg), step[1])),
-        "diff": r1(nice_ceil(max(diff), step[1])),
-    }
-    if cfg["kind"] == "days":
-        scale["abs"][0] = max(0.0, scale["abs"][0])
-    if cfg["kind"] == "prcp":
-        scale["pct"] = r1(nice_ceil(max(pct), 1.0))
-        scale["pctDiff"] = r1(nice_ceil(max(pdiff), 1.0))
-
     # 전국("00")은 annual에서 뺌 (공식값에만 있음)
     for c in NATION_ONLY_OFFICIAL:
         current.pop(c, None)
@@ -326,7 +277,7 @@ def make_element(eid, cfg):
         "current": {"startYear": CUR_YEARS[0], "annual": current},
         "projection": {"startYear": PROJ_YEARS[0], "annual": projection},
         "official": official,
-        "scale": scale,
+        "scale": {},   # 아래 main()에서 tools/rescale.py로 채움
     }
 
 
@@ -453,8 +404,11 @@ def main():
     # 지도 경계(data/geo/sido.json)는 실제 자료라 여기서 만들지 않음 → tools/build_geo.py
     for k, v in sizes.items():
         print(f"  {k:24s} {v / 1024:6.1f} KB")
-    for eid, e in elements.items():
-        print(f"  scale {eid:9s} {json.dumps(e['scale'], ensure_ascii=False)}")
+    # 지도 색 범위: 실제 자료와 같은 계산(tools/rescale.py)으로 [최솟값, 최댓값]
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from rescale import rescale_dir
+    for eid, sc in rescale_dir(DATA).items():
+        print(f"  scale {eid:9s} {json.dumps(sc, ensure_ascii=False)}")
     if not verify(elements, stations):
         raise SystemExit("예시 데이터 확인 실패 — 규칙을 고쳐 주세요.")
 

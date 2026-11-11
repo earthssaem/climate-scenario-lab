@@ -53,45 +53,63 @@ function scaleOf(el, v) {
   return fallbackCache.get(el);
 }
 
+/** scale 값 하나 → [최솟값, 최댓값]. 예전 대칭 형식(숫자 m)은 [−m, m]으로 읽음 */
+export function rangeOf(val) {
+  if (Array.isArray(val) && val.length === 2) return [Number(val[0]), Number(val[1])];
+  if (typeof val === 'number' && Number.isFinite(val)) return [-Math.abs(val), Math.abs(val)];
+  return null;
+}
+
 /**
- * 지금 조건의 지도 색 규칙.
+ * 변화량·차이 지도의 0 기준 색: 0은 언제나 흰색.
+ * 최솟값이 0 이상이면 [0, 최댓값] 한쪽 방향, 최댓값이 0 이하이면 [최솟값, 0] 한쪽 방향,
+ * 양쪽에 걸치면 [최솟값, 최댓값] 비대칭 양방향 (0의 위치가 가운데가 아닐 수 있음).
+ */
+function zeroAnchored(range, stops) {
+  const lo = Math.min(range[0], 0);
+  const hi = Math.max(range[1], 0);
+  const mid = (stops.length - 1) / 2;           // stops 가운데가 흰색
+  const neg = stops.slice(0, mid + 1).reverse(); // 흰색 → 줄어듦 쪽 진한 색
+  const pos = stops.slice(mid);                  // 흰색 → 늘어남 쪽 진한 색
+  const color = (v) => (v >= 0 ? ramp(pos, hi > 0 ? v / hi : 0) : ramp(neg, lo < 0 ? v / lo : 0));
+  const z = hi - lo > 0 ? ((0 - lo) / (hi - lo)) * 100 : 0;   // 범례에서 0의 위치(%)
+  const parts = [];
+  if (lo < 0) neg.slice().reverse().forEach((c, i) => parts.push(`${c} ${(i / (neg.length - 1)) * z}%`));
+  if (hi > 0) pos.forEach((c, i) => parts.push(`${c} ${z + (i / (pos.length - 1)) * (100 - z)}%`));
+  if (parts.length === 0) parts.push('#ffffff 0%', '#ffffff 100%');
+  return { min: lo, max: hi, zero: z, color, gradient: `linear-gradient(to right, ${parts.join(', ')})` };
+}
+
+/**
+ * 지금 조건의 지도 색 규칙. 범위는 요소·모드별로 자료 파일의 scale에서 고정(시나리오·기간을 바꿔도 그대로).
  * which: 'value'(나란히 지도) | 'diff'(차이 지도)
- * 반환: { type:'seq'|'div', min, max, color(v), gradient, low, high }
+ * 반환: { type:'seq'|'div', min, max, zero(0의 위치 %, div만), color(v), gradient, low, high, outside(v), annualRange }
  */
 export function mapScale(v, which) {
   const { s, elMeta, el, pct } = v;
   const sc = scaleOf(el, v);
   const isPrcp = elMeta.kind === 'prcp';
   const temp = elMeta.kind === 'temp';
-  let type;
-  let min;
-  let max;
-  let stops;
+  let out;
   let low;
   let high;
-  if (which === 'diff') {
-    const m = pct ? sc.pctDiff : sc.diff;
-    type = 'div'; min = -m; max = m;
-    stops = isPrcp ? DIV.prcp : DIV.temp;
-    low = temp ? 'B가 더 낮음' : 'B가 더 적음';
-    high = temp ? 'B가 더 높음' : 'B가 더 많음';
-  } else if (s.mode === 'abs') {
-    type = 'seq'; [min, max] = sc.abs;
-    stops = isPrcp ? SEQ.wet : elMeta.id === 'cold' ? SEQ.icy : SEQ.warm;
+  if (s.mode === 'abs' && which !== 'diff') {
+    // 값 모드: 한쪽으로 진해지는 색
+    const [min, max] = rangeOf(sc.abs) ?? [0, 1];
+    const stops = isPrcp ? SEQ.wet : elMeta.id === 'cold' ? SEQ.icy : SEQ.warm;
+    const span = max - min || 1;
+    out = { type: 'seq', min, max, color: (val) => ramp(stops, (val - min) / span),
+      gradient: `linear-gradient(to right, ${stops.map((c, i) => `${c} ${(i / (stops.length - 1)) * 100}%`).join(', ')})` };
     low = temp ? '낮음' : '적음';
     high = temp ? '높음' : '많음';
   } else {
-    const m = pct ? sc.pct : sc.chg;
-    type = 'div'; min = -m; max = m;
-    stops = isPrcp ? DIV.prcp : DIV.temp;
-    low = temp ? '낮아짐' : '줄어듦';
-    high = temp ? '높아짐' : '늘어남';
+    const key = which === 'diff' ? (pct ? 'pctDiff' : 'diff') : (pct ? 'pct' : 'chg');
+    out = { type: 'div', ...zeroAnchored(rangeOf(sc[key]) ?? [-1, 1], isPrcp ? DIV.prcp : DIV.temp) };
+    if (which === 'diff') { low = temp ? 'B가 더 낮음' : 'B가 더 적음'; high = temp ? 'B가 더 높음' : 'B가 더 많음'; }
+    else { low = temp ? '낮아짐' : '줄어듦'; high = temp ? '높아짐' : '늘어남'; }
   }
-  const span = max - min || 1;
-  const color = (val) => ramp(stops, (val - min) / span);
-  const gradient = `linear-gradient(to right, ${stops.map((c, i) => `${c} ${(i / (stops.length - 1)) * 100}%`).join(', ')})`;
-  const outside = (val) => val < min - 1e-9 || val > max + 1e-9;
+  const outside = (val) => val < out.min - 1e-9 || val > out.max + 1e-9;
   // 연도 보기에서 연별 색 범위(scale.annual)를 쓰면 범례에 표시
   const annualRange = s.year != null && !!el?.scale?.period && !!el?.scale?.annual;
-  return { type, min, max, color, gradient, low, high, outside, annualRange };
+  return { ...out, low, high, outside, annualRange };
 }

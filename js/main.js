@@ -3,7 +3,7 @@
 import { createStore, obsAllowed, obsEffective } from './state.js';
 import * as D from './data.js';
 import { T } from './text.js';
-import { renderTopControls, renderTokens, renderDialogs } from './ui-controls.js';
+import { renderTopControls, renderCondRow, renderDialogs } from './ui-controls.js';
 import { mountMap, renderMap, popupPosition } from './map.js';
 import { renderChart } from './chart.js';
 import { renderKeybar, renderDetails } from './numbers.js';
@@ -86,7 +86,7 @@ function render() {
   if (!manifest) return;
 
   renderTopControls($('topControls'), v);
-  renderTokens($('tokens'), v);
+  renderCondRow($('condRow'), v);
   renderMap($('mapCard'), v);
   renderChart($('chartCard'), v, A);
   renderKeybar($('keybar'), v);
@@ -117,15 +117,12 @@ function handle(action, ds, el, evt) {
     case 'info': lastOpener = 'info'; return A.openInfo();
     case 'graph-info': lastOpener = 'graph-info'; return A.openGraphInfo();
     case 'sources': lastOpener = 'sources'; return A.openSources();
-    case 'chooser': lastOpener = `tk-${ds.kind}`; return A.openChooser(ds.kind);
-    case 'picker': lastOpener = el?.dataset.key || `tk-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
+    case 'picker': lastOpener = el?.dataset.key || `picker-${ds.slot}`; ensureEmissions(); return A.openPicker(ds.slot);
     case 'pick-scen': return A.setScenario(ds.slot, ds.id || null);
-    case 'choose-region': return ds.slot === 'A' ? A.chooseRegionA(ds.id) : A.chooseRegionB(ds.id || null);
     case 'close-dialog': return A.closeDialogs();
     case 'retry-emissions': return ensureEmissions();
     case 'mode': return A.setMode(ds.id);
     case 'prcp-unit': return A.setPrcpUnit(ds.id);
-    case 'mode-opt': A.setPrcpUnit(ds.unit); return A.setMode(ds.mode);
     case 'tile':
       A.tapRegion(ds.code);
       return showPopupFor(el, evt);
@@ -171,7 +168,7 @@ function bindEvents() {
   // SVG 지역처럼 <button>이 아닌 누름 대상: Enter / Space
   document.addEventListener('keydown', (e) => {
     const ui = store.get().ui;
-    if (e.key === 'Escape' && (ui.picker || ui.info || ui.chooser || ui.graphInfo || ui.sources)) { A.closeDialogs(); return; }
+    if (e.key === 'Escape' && (ui.picker || ui.info || ui.graphInfo || ui.sources)) { A.closeDialogs(); return; }
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const t = e.target.closest?.('[data-action][role="button"]');
     if (!t || t.tagName === 'BUTTON' || t.getAttribute('aria-disabled') === 'true') return;

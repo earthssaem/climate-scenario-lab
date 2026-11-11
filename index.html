@@ -26,10 +26,10 @@
           </span>
           <h1>기후변화 시나리오 탐구실</h1>
         </a>
-        <div class="top-controls" id="topControls" aria-label="기후요소와 표시 방식"></div>
+        <div class="top-controls" id="topControls" role="group" aria-label="기후요소와 표시 방식"></div>
       </header>
-      <!-- 지금 조건을 한눈에 + 누르면 바로 바꾸기 (화면 캡처의 그림 설명 역할) -->
-      <div class="tokens" id="tokens" role="group" aria-label="지금 조건 — 누르면 바꿀 수 있어요" aria-live="polite"></div>
+      <!-- 2줄: 시나리오 A vs B · 4개 모두 | 기간 (지도와 그래프가 함께 쓰는 조건) -->
+      <div class="cond-row" id="condRow" role="group" aria-label="시나리오와 기간"></div>
     </div>
 
     <main class="stage">

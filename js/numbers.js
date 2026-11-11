@@ -1,6 +1,7 @@
 // numbers.js — 수치 비교 표 + 기간별 차이 막대그래프(B−A)
 // 데이터에 나타난 값을 그대로 보여 줍니다. 증가·감소 같은 결론 문구를 자동으로 붙이지 않습니다.
 import * as D from './data.js';
+import { rangeOf } from './scales.js';
 import { T, esc, fmtNum, fmtSigned, fmtDiff, unitOf, withUnit, derivedShort } from './text.js';
 
 function cellButton(pid, enabled, big, small, label) {
@@ -107,7 +108,8 @@ function barsHTML(v, width) {
 
   // 세로 범위: 요소 파일의 고정 scale(diff / pctDiff)을 써서 조건을 바꿔도 막대 축이 과장되지 않게
   const sc = el.scale?.period ?? el.scale ?? {};   // 기간 범위 (scale이 기간/연별로 나뉜 형식도 받음)
-  let m = v.pct ? sc.pctDiff : sc.diff;
+  const dr = rangeOf(v.pct ? sc.pctDiff : sc.diff);   // [최솟값, 최댓값] 또는 예전 대칭 값
+  let m = dr ? Math.max(Math.abs(dr[0]), Math.abs(dr[1])) : null;
   const all = vals.flat().filter(D.isNum);
   const maxAbs = all.length ? Math.max(...all.map(Math.abs)) : 0;
   if (!D.isNum(m) || m <= 0) m = maxAbs || 1;

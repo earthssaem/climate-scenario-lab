@@ -95,6 +95,22 @@ function applyPixelScale(root) {
         t.setAttribute(a, Number(orig) + Number(t.dataset[d]) * k);
       });
     });
+    // 선택한 작은 시(세종·광주 등) 이름표가 도 이름표와 겹치면 도 이름표를 위·아래로 비켜 둠
+    const sel = [...svg.querySelectorAll('text.lb.sel')];
+    svg.querySelectorAll('text.lb:not(.sel)').forEach((t) => {
+      t.dataset.y0 = t.dataset.y0 ?? t.getAttribute('y');
+      t.setAttribute('y', t.dataset.y0);
+      sel.forEach((sl) => {
+        const a = sl.getBBox();
+        const b = t.getBBox();
+        const ox = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+        const oy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+        if (ox <= 0 || oy <= 0) return;
+        const down = b.y + b.height / 2 >= a.y + a.height / 2;
+        const shift = down ? a.y + a.height - b.y + 2 * k : -(b.y + b.height - a.y + 2 * k);
+        t.setAttribute('y', Number(t.getAttribute('y')) + shift);
+      });
+    });
   });
 }
 
@@ -210,11 +226,17 @@ export function renderMap(root, v) {
 
   const tick = (x) => (scale.type === 'seq' ? fmtNum(x) : fmtSigned(x));
   const lgTitle = which === 'diff' ? `B − A (${T.appCalc})` : figs.length === 2 ? '공통 범례' : '범례';
-  const legend = message ? `<div class="legend empty"></div>` : `<div class="legend">
+  // 변화량·차이: 0(흰색) 위치를 범례 막대 위에 표시. 한쪽 방향이면 그 쪽 낱말만
+  const isDiv = scale.type === 'div';
+  const zeroIn = isDiv && scale.zero > 0.5 && scale.zero < 99.5;
+  const zeroMark = zeroIn ? `<span class="zero-mark" style="left:${scale.zero.toFixed(1)}%"><span>0</span></span>` : '';
+  const lowWord = !isDiv || scale.min < 0 ? `<span>← ${esc(scale.low)}</span>` : '<span></span>';
+  const highWord = !isDiv || scale.max > 0 ? `<span>${esc(scale.high)} →</span>` : '<span></span>';
+  const legend = message ? `<div class="legend empty"></div>` : `<div class="legend${zeroIn ? ' has-zero' : ''}">
     <span class="lg-title">${lgTitle}${scale.annualRange ? `<span class="lg-tag">연도 보기 색 범위</span>` : ''}<span class="u">${esc(unit)} · ${which === 'diff' ? (v.pct ? '변화율 차이' : '시나리오 차이') : esc(modeName(s.mode, v.pct))}</span></span>
     <span class="lg-end">${tick(scale.min)}</span>
-    <span class="lg-bar-wrap"><span class="bar" style="background:${scale.gradient}"></span>
-      <span class="words"><span>${esc(scale.low)}</span>${scale.type === 'div' ? '<span>0</span>' : ''}<span>${esc(scale.high)}</span></span></span>
+    <span class="lg-bar-wrap"><span class="bar" style="background:${scale.gradient}">${zeroMark}</span>
+      <span class="words">${lowWord}${highWord}</span></span>
     <span class="lg-end">${tick(scale.max)}</span>
     ${anyNA || clamped ? `<span class="lg-extra">${anyNA ? `<span><span class="hatch-sw"></span>${T.noData}</span>` : ''}${clamped ? `<span>${T.clampNote}</span>` : ''}</span>` : ''}
   </div>`;
@@ -223,15 +245,17 @@ export function renderMap(root, v) {
     ${figs.map((f) => `<button class="chip" data-action="map-tab" data-tab="${f.key}" data-key="tab-${f.key}" aria-pressed="${f.key === visible[0].key}">
       ${f.key} · ${esc(f.scen.label)}</button>`).join('')}</div>` : '';
 
+  const viewSeg = `<div class="seg" role="group" aria-label="지도 보기">
+        <button data-action="map-view" data-view="side" data-key="mv-side" aria-pressed="${which === 'value'}">나란히</button>
+        <button data-action="map-view" data-view="diff" data-key="mv-diff" aria-pressed="${which === 'diff'}" ${B ? '' : 'disabled title="B 시나리오를 고르면 쓸 수 있어요"'}>차이 B−A</button>
+      </div>`;
+  // 지도 한 장씩 보는 좁은 화면: [나란히|차이]를 A/B 고르기 줄에 함께 두어 지도 높이를 확보
   root.innerHTML = `
     <div class="map-tools">
       <div class="tools-left">${regionToolsHTML(v)}</div>
-      <div class="seg" role="group" aria-label="지도 보기">
-        <button data-action="map-view" data-view="side" data-key="mv-side" aria-pressed="${which === 'value'}">나란히</button>
-        <button data-action="map-view" data-view="diff" data-key="mv-diff" aria-pressed="${which === 'diff'}" ${B ? '' : 'disabled title="B 시나리오를 고르면 쓸 수 있어요"'}>차이 B−A</button>
-      </div>
+      ${useTabs ? '' : viewSeg}
     </div>
-    ${tabs}
+    ${useTabs ? `<div class="map-tabs-row">${tabs}${viewSeg}</div>` : ''}
     <div class="maps${visible.length === 1 ? ' single' : ''}${which === 'diff' ? ' big' : ''}">${figHTML}</div>
     ${legend}
     ${overlay}`;

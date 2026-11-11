@@ -1,25 +1,27 @@
-// ui-controls.js — 상단 바, 조건 토큰 줄, 선택 창들(지역·요소·시나리오·기간·표시 방식), ⓘ 창
+// ui-controls.js — 상단 두 줄(기후요소·표시 방식 / 시나리오·4개 모두·기간), 지도 머리의 분석 지역, 시나리오 선택 창, ⓘ 창
 // 화면은 상태(view.s)로만 그립니다. 버튼은 data-action 속성만 달고, 실제 처리는 main.js 한 곳에서 합니다.
 import {
-  T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, modeName, derivedNote, derivedShort, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
+  T, SCEN_DESC, ELEMENT_INFO, ELEMENT_INFO_LAST, GRAPH_INFO, esc, derivedNote, periodOnlyNote, periodOnlyHint, sourceLines, linkify,
 } from './text.js';
 import * as D from './data.js';
 
 const pressed = (on) => `aria-pressed="${on ? 'true' : 'false'}"`;
 const shortEl = (name) => name.replace(/일수$/, '');   // 폭염일수 → 폭염 (상단 바용 짧은 이름)
 
-/* ───────────── 상단 바 ───────────── */
+/* ───────────── 1줄: 기후요소 ⓘ | 값/변화량 (강수량 mm/%) ───────────── */
 
 export function renderTopControls(root, v) {
   const { s, manifest } = v;
   if (!manifest) { root.innerHTML = ''; return; }
   const isPrcp = v.elMeta?.kind === 'prcp';
   root.innerHTML = `
-    <div class="seg el-seg" role="group" aria-label="기후요소">
+    <span class="ctl-label" id="lblEl">기후요소</span>
+    <div class="seg el-seg" role="group" aria-labelledby="lblEl">
       ${manifest.elements.map((e) => `<button data-action="element" data-id="${esc(e.id)}" data-key="el-${esc(e.id)}"
         ${pressed(e.id === s.element)} aria-label="${esc(e.name)}">${esc(shortEl(e.name))}</button>`).join('')}
     </div>
     <button class="icon-btn" data-action="info" data-key="info" aria-haspopup="dialog" aria-label="${esc(v.elMeta?.name ?? '')} 설명 보기">ⓘ</button>
+    <span class="sep" aria-hidden="true"></span>
     <div class="seg" role="group" aria-label="표시 방식">
       <button data-action="mode" data-id="abs" data-key="mode-abs" ${pressed(s.mode === 'abs')}>값</button>
       <button data-action="mode" data-id="chg" data-key="mode-chg" ${pressed(s.mode === 'chg')}>변화량</button>
@@ -30,39 +32,39 @@ export function renderTopControls(root, v) {
     </div>` : ''}`;
 }
 
-/* ───────────── 조건 토큰 줄 ───────────── */
+/* ───────────── 2줄: 시나리오 A vs B, 4개 모두 | 기간 (지도·그래프 공통 조건) ───────────── */
 
-function scenToken(v, slot) {
+function scenButton(v, slot) {
   const id = slot === 'A' ? v.s.scenA : v.s.scenB;
   const m = id ? v.scenMeta(id) : null;
-  return `<button class="token scen" data-action="picker" data-slot="${slot}" data-key="tk-${slot}" aria-haspopup="dialog"
+  return `<button class="scen-btn" data-action="picker" data-slot="${slot}" data-key="picker-${slot}" aria-haspopup="dialog"
     aria-label="시나리오 ${slot}: ${m ? esc(m.label) : T.noneScenario} — 바꾸기"><span class="ab">${slot}</span>${m
-    ? `<span class="sdot" style="--c:${esc(m.color)}"></span>${esc(m.label)}` : `<span class="none">${T.noneScenario}</span>`}</button>`;
+    ? `<span class="sdot" style="--c:${esc(m.color)}"></span><span class="sl">${esc(m.label)}</span>` : `<span class="sl none">${T.noneScenario}</span>`}<span class="caret" aria-hidden="true">▾</span></button>`;
 }
 
-export function renderTokens(root, v) {
-  const { s } = v;
-  if (!v.manifest || !v.elMeta) { root.innerHTML = ''; return; }
-  const nm = (c) => esc(v.regionMeta(c)?.short ?? c);
-  const pm = v.periodMeta(s.period);
-  const periodText = s.year != null ? `${s.year}년` : pm ? (pm.derived ? `${pm.start}~${pm.end}*` : `${pm.start}~${pm.end}`) : '';
+export function renderCondRow(root, v) {
+  const { s, manifest } = v;
+  if (!manifest) { root.innerHTML = ''; return; }
+  const all4Disabled = !!s.regionB;
+  const period = s.year != null
+    ? `<span class="year-chip" role="status">${s.year}년 보기<button class="x" data-action="clear-year" data-key="clear-year" aria-label="${s.year}년 보기 끝내기, 20년 평균으로">✕</button></span>`
+    : `<div class="seg period-seg" role="group" aria-labelledby="lblPeriod">${manifest.periods.map((p) => {
+      const off = p.derived && !v.derivedOk(p);
+      return `<button data-action="period" data-id="${esc(p.id)}" data-key="period-${esc(p.id)}" ${pressed(p.id === s.period)} ${off ? 'disabled' : ''}
+        aria-label="${esc(p.label)} ${p.start}~${p.end}년${p.derived ? ` (${T.appCalc})` : ''}${off ? ' — 이 요소는 자료가 없어요' : ''}">${esc(p.derived ? `${p.label}*` : p.label)}</button>`;
+    }).join('')}</div>`;
   root.innerHTML = `
-    <button class="token" data-action="chooser" data-kind="region" data-key="tk-region" aria-haspopup="dialog" aria-label="지역 바꾸기">
-      <span class="ic" aria-hidden="true">📍</span>${nm(s.regionA)}${s.regionB ? `<span class="vs">vs</span>${nm(s.regionB)}` : ''}</button>
-    <button class="token" data-action="chooser" data-kind="element" data-key="tk-element" aria-haspopup="dialog" aria-label="기후요소 바꾸기">
-      <span class="ic" aria-hidden="true">🌡</span>${esc(v.elMeta.name)}</button>
-    <span class="token-pair">${scenToken(v, 'A')}<span class="vs">vs</span>${scenToken(v, 'B')}</span>
-    <span class="token-pair">
-      <button class="token" data-action="chooser" data-kind="period" data-key="tk-period" aria-haspopup="dialog" aria-label="기간 바꾸기">
-        <span class="ic" aria-hidden="true">🕘</span>${periodText}</button>
-      ${s.year != null ? `<button class="token-x" data-action="clear-year" data-key="tk-clear-year" aria-label="연도 보기 끝내기, 20년 평균으로">✕</button>` : ''}
-    </span>
-    <button class="token" data-action="chooser" data-kind="mode" data-key="tk-mode" aria-haspopup="dialog" aria-label="표시 방식 바꾸기">
-      <span class="ic" aria-hidden="true">Δ</span>${esc(modeName(s.mode, v.pct))}</button>
-    ${s.mapView === 'diff' && s.scenB ? `<span class="tag">${T.diffMapTag}</span>` : ''}`;
+    <span class="ctl-label">시나리오</span>
+    ${scenButton(v, 'A')}<span class="vs">vs</span>${scenButton(v, 'B')}
+    <label class="check${all4Disabled ? ' disabled' : ''}" title="${all4Disabled ? T.all4Disabled : ''}">
+      <input type="checkbox" data-change="all4" data-key="all4" ${s.showAll4 && !all4Disabled ? 'checked' : ''} ${all4Disabled ? 'disabled' : ''}>
+      <span>4개 모두</span></label>
+    <span class="sep" aria-hidden="true"></span>
+    <span class="ctl-label" id="lblPeriod">기간</span>
+    ${period}`;
 }
 
-/** 지도 위 도구 줄 왼쪽: [전국] [+ 비교 지역] / 비교 중 칩 / 고르는 중 안내 */
+/** 지도 머리 왼쪽: 분석 지역 + [전국으로] + [+ 비교 지역] / 비교 중 / 비교 지역 고르는 중 */
 export function regionToolsHTML(v) {
   const { s } = v;
   const name = (c) => esc(v.regionMeta(c)?.short ?? c);
@@ -71,12 +73,10 @@ export function regionToolsHTML(v) {
       ${s.regionA !== '00' ? `<button class="chip" data-action="nation" data-key="nation">전국</button>` : ''}
       <button class="chip ghost" data-action="cancel-pick" data-key="cancel-pick">취소</button>`;
   }
-  const nation = `<button class="chip" data-action="nation" data-key="nation" ${pressed(s.regionA === '00')}>전국</button>`;
-  if (s.regionB) {
-    return `${nation}<span class="region-pair"><span class="badge">A</span>${name(s.regionA)}<span class="badge b">B</span>${name(s.regionB)}
-      <button class="x" data-action="clear-b" data-key="clear-b" aria-label="지역 비교 끝내기">✕</button></span>`;
-  }
-  return `${nation}<button class="chip ghost" data-action="pick-b" data-key="pick-b">+ 비교 지역</button>`;
+  const label = `<span class="region-label">분석 지역: <b>${name(s.regionA)}</b>${s.regionB
+    ? ` · 비교: <b>${name(s.regionB)}</b><button class="x" data-action="clear-b" data-key="clear-b" aria-label="지역 비교 끝내기">✕</button>` : ''}</span>`;
+  const nation = `<button class="chip" data-action="nation" data-key="nation" ${s.regionA === '00' ? 'disabled' : ''}>전국으로</button>`;
+  return `${label}${nation}${s.regionB ? '' : `<button class="chip ghost" data-action="pick-b" data-key="pick-b">+ 비교 지역</button>`}`;
 }
 
 /* ───────────── 시나리오 선택 창 ───────────── */
@@ -183,58 +183,6 @@ function infoHTML(v) {
       <p class="think">${ELEMENT_INFO_LAST}</p>`, 'info');
 }
 
-/* ───────────── 조건 토큰 선택 창 ───────────── */
-
-function regionChooser(v) {
-  const { s, manifest } = v;
-  const btn = (r, slot, on, disabled = false) => `<button class="opt" data-action="choose-region" data-slot="${slot}" data-id="${esc(r.code)}"
-    data-key="cr-${slot}-${esc(r.code)}" ${pressed(on)} ${disabled ? 'disabled' : ''}>${esc(r.short)}</button>`;
-  return dialogShell(T.regionChooser, `
-    <section class="ch-sec"><h3>${T.regionA}</h3>
-      <div class="opt-grid">${manifest.regions.map((r) => btn(r, 'A', r.code === s.regionA)).join('')}</div></section>
-    <section class="ch-sec"><h3>${T.regionB} <span class="sub">그래프·수치에서 두 지역을 나란히 비교</span></h3>
-      <div class="opt-grid">
-        <button class="opt" data-action="choose-region" data-slot="B" data-id="" data-key="cr-B-none" ${pressed(!s.regionB)}>${T.noCompare}</button>
-        ${manifest.regions.map((r) => btn(r, 'B', r.code === s.regionB, r.code === s.regionA)).join('')}</div></section>
-    <p class="help">지도에서 시도를 눌러도 지역 A가 바뀌어요.</p>`, 'chooser');
-}
-
-function elementChooser(v) {
-  const { s, manifest } = v;
-  return dialogShell(T.elementChooser, `<div class="opt-list">${manifest.elements.map((e) => {
-    const info = ELEMENT_INFO[e.id] ?? { def: '', life: '' };
-    return `<button class="opt wide" data-action="element" data-id="${esc(e.id)}" data-key="ce-${esc(e.id)}" ${pressed(e.id === s.element)}>
-      <b>${esc(e.name)} <span class="unit-tag">${esc(e.unit)}</span></b><span class="d">${esc(info.def)} ${esc(info.life)}</span></button>`;
-  }).join('')}</div><p class="think">${ELEMENT_INFO_LAST}</p>`, 'chooser');
-}
-
-function periodChooser(v) {
-  const { s, manifest } = v;
-  const derived = manifest.periods.find((p) => p.derived);
-  return dialogShell(T.periodChooser, `
-    ${s.year != null ? `<button class="opt wide" data-action="clear-year" data-key="cp-clear-year"><b>${T.endYear}</b><span class="d">지금은 ${s.year}년 값을 보고 있어요. 20년 평균으로 돌아가요.</span></button>` : ''}
-    <div class="opt-list">${manifest.periods.map((p) => {
-      const off = p.derived && !v.derivedOk(p);
-      return `<button class="opt wide" data-action="period" data-id="${esc(p.id)}" data-key="cp-${esc(p.id)}"
-        ${pressed(s.year == null && p.id === s.period)} ${off ? 'disabled' : ''}>
-        <b>${esc(p.derived ? `${p.label}*` : p.label)}</b><span class="d">${p.start}~${p.end}년${p.derived ? ` · ${T.appCalc}` : ''}${off ? ' · 이 요소는 10년 값이 없어 쓸 수 없어요' : ''}</span></button>`;
-    }).join('')}</div>
-    ${derived ? `<p class="help">${esc(derivedShort(derived, D.derivedMethod(v.el, derived)))}</p>` : ''}
-    <p class="help">그래프 아래 기간 띠를 눌러도 바뀌어요. 그래프를 누르면 한 해의 값을 볼 수 있어요.</p>`, 'chooser');
-}
-
-function modeChooser(v) {
-  const { s } = v;
-  const isPrcp = v.elMeta?.kind === 'prcp';
-  const opts = [['abs', 'mm', '값', `${v.elMeta.unit} 그대로`], ['chg', 'mm', '현재 대비 변화량', `현재기후(2000~2019)와의 차이 (${v.elMeta.unit})`]];
-  if (isPrcp) opts.push(['chg', 'pct', '현재 대비 변화율(%)', '(값 − 현재) ÷ 현재 × 100. 시나리오 차이는 %p로 표시']);
-  return dialogShell(T.modeChooser, `<div class="opt-list">${opts.map(([mode, unit, label, d]) => {
-    const on = s.mode === mode && (mode === 'abs' || !isPrcp || s.prcpUnit === unit);
-    return `<button class="opt wide" data-action="mode-opt" data-mode="${mode}" data-unit="${unit}" data-key="cm-${mode}-${unit}" ${pressed(on)}>
-      <b>${label}</b><span class="d">${d}</span></button>`;
-  }).join('')}</div>`, 'chooser');
-}
-
 function graphInfoHTML(v) {
   const rows = GRAPH_INFO.map(([k, d]) => `<p><b>${k}</b> ${d}</p>`).join('');
   const dMeta = v.manifest.periods.find((p) => p.derived);
@@ -268,10 +216,6 @@ export function renderDialogs(root, v) {
   else if (s.ui.info && v.elMeta) { key = `info-${v.elMeta.id}`; html = infoHTML(v); }
   else if (s.ui.graphInfo) { key = 'graphinfo'; html = graphInfoHTML(v); }
   else if (s.ui.sources) { key = 'sources'; html = sourcesHTML(v); }
-  else if (s.ui.chooser && v.elMeta) {
-    key = `chooser-${s.ui.chooser}`;
-    html = { region: regionChooser, element: elementChooser, period: periodChooser, mode: modeChooser }[s.ui.chooser]?.(v) ?? '';
-  }
   if (!key || !html) {
     root.innerHTML = '';
     document.body.classList.remove('dlg-open');

@@ -299,37 +299,28 @@ export function chartRange(el, opts) {
  * (요소마다 고정이므로 조건을 바꿔도 색 범위는 흔들리지 않습니다.)
  */
 export function fallbackScale(el, scenarios, regions, periods) {
-  const absv = [];
-  const chg = [];
-  const pct = [];
-  const diff = [];
-  const pdiff = [];
-  for (const r of regions) {
-    const cur = curValue(el, r);
-    const per = scenarios.map((s) => periods.map((p) => periodValue(el, s, p.id, r, periods)));
+  const R = () => ({ lo: Infinity, hi: -Infinity, add(v) { if (isNum(v)) { this.lo = Math.min(this.lo, v); this.hi = Math.max(this.hi, v); } } });
+  const r = { abs: R(), chg: R(), diff: R(), pct: R(), pctDiff: R() };
+  for (const reg of regions) {
+    const cur = curValue(el, reg);
+    r.abs.add(cur);
+    const fut = periods.filter((p) => p.id !== 'cur');   // 현재 기간은 변화량 0이라 넣지 않음
+    const per = scenarios.map((s) => fut.map((p) => periodValue(el, s, p.id, reg, periods)));
     per.forEach((row) => row.forEach((v) => {
       if (!isNum(v)) return;
-      absv.push(v);
-      if (isNum(cur)) { chg.push(Math.abs(v - cur)); if (cur) pct.push(Math.abs(((v - cur) / cur) * 100)); }
+      r.abs.add(v);
+      if (isNum(cur)) { r.chg.add(v - cur); if (cur) r.pct.add(((v - cur) / cur) * 100); }
     }));
-    for (let i = 0; i < per.length; i += 1) {
-      for (let j = i + 1; j < per.length; j += 1) {
-        periods.forEach((p, k) => {
-          if (p.id === 'cur') return;
-          const d = diffBA(per[i][k], per[j][k]);
-          if (!isNum(d)) return;
-          diff.push(Math.abs(d));
-          if (isNum(cur) && cur) pdiff.push(Math.abs((d / cur) * 100));
-        });
-      }
-    }
+    per.forEach((ra, i) => per.forEach((rb, j) => {
+      if (i === j) return;
+      fut.forEach((_, k) => {
+        const d = diffBA(ra[k], rb[k]);
+        if (!isNum(d)) return;
+        r.diff.add(d);
+        if (isNum(cur) && cur) r.pctDiff.add((d / cur) * 100);
+      });
+    }));
   }
-  const max = (a) => (a.length ? Math.max(...a) : 1);
-  return {
-    abs: absv.length ? [Math.min(...absv), Math.max(...absv)] : [0, 1],
-    chg: max(chg),
-    diff: max(diff),
-    pct: max(pct),
-    pctDiff: max(pdiff),
-  };
+  const out = (x) => (Number.isFinite(x.lo) ? [x.lo, x.hi] : [0, 1]);
+  return { abs: out(r.abs), chg: out(r.chg), diff: out(r.diff), pct: out(r.pct), pctDiff: out(r.pctDiff) };
 }

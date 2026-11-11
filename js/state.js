@@ -14,13 +14,12 @@ export const DEFAULT_STATE = Object.freeze({
   period: 'p4',          // 후반기(2081~2100)
   year: null,            // 숫자면 연도 보기 모드
   mapView: 'side',       // 'side' 나란히 | 'diff' 차이(B−A)
-  obsLayer: Object.freeze({ on: true, series: '6avg' }),
+  obsLayer: Object.freeze({ on: false, series: '6avg' }),   // 과거 관측 보기(1912~) — 기본 꺼짐
   periodBars: false,     // 그래프의 모든 기간 20년 평균 가로선 (끄면 선택한 기간의 A·B만 옅게)
   // 화면 조작용(열린 창 등). 탐구 조건이 아니며 역시 저장하지 않습니다.
   ui: Object.freeze({
     picker: null,        // 시나리오 선택 창: 'A' | 'B' | null
     info: false,         // 기후요소 ⓘ 창
-    chooser: null,       // 조건 토큰 선택 창: 'region' | 'element' | 'period' | 'mode' | null
     graphInfo: false,    // 그래프 ⓘ 창
     mapTab: 'A',         // 지도 영역이 좁을 때 보이는 지도 (A | B)
     popup: null,         // 지도 말풍선 { code, fig, x, y } — 잠깐 보였다 사라짐
@@ -76,13 +75,12 @@ export function createStore() {
 
   const actions = {
     reset: () => set(clone(DEFAULT_STATE)),
-    setElement: (id) => set({ element: id, ui: { ...state.ui, info: false, chooser: null } }),
-    openPicker: (slot) => setUi({ picker: slot, info: false, chooser: null, graphInfo: false, sources: false }),
-    openInfo: () => setUi({ info: true, picker: null, chooser: null, graphInfo: false, sources: false }),
-    openChooser: (kind) => setUi({ chooser: kind, picker: null, info: false, graphInfo: false, sources: false }),
-    openGraphInfo: () => setUi({ graphInfo: true, picker: null, info: false, chooser: null, sources: false }),
-    openSources: () => setUi({ sources: true, graphInfo: false, picker: null, info: false, chooser: null }),
-    closeDialogs: () => setUi({ picker: null, info: false, chooser: null, graphInfo: false, sources: false }),
+    setElement: (id) => set({ element: id, ui: { ...state.ui, info: false } }),
+    openPicker: (slot) => setUi({ picker: slot, info: false, graphInfo: false, sources: false }),
+    openInfo: () => setUi({ info: true, picker: null, graphInfo: false, sources: false }),
+    openGraphInfo: () => setUi({ graphInfo: true, picker: null, info: false, sources: false }),
+    openSources: () => setUi({ sources: true, graphInfo: false, picker: null, info: false }),
+    closeDialogs: () => setUi({ picker: null, info: false, graphInfo: false, sources: false }),
     showPopup: (popup) => setUi({ popup }),
     hidePopup: () => { if (state.ui.popup) setUi({ popup: null }); },
     toggleDetails: () => setUi({ details: !state.ui.details }),
@@ -97,8 +95,8 @@ export function createStore() {
       }
     },
     setAll4: (on) => set({ showAll4: !!on && !state.regionB }),
-    setMode: (mode) => set({ mode, ui: { ...state.ui, chooser: null } }),
-    setPrcpUnit: (prcpUnit) => set({ prcpUnit, ui: { ...state.ui, chooser: null } }),
+    setMode: (mode) => set({ mode }),
+    setPrcpUnit: (prcpUnit) => set({ prcpUnit }),
     /** 지도 타일을 눌렀을 때 */
     tapRegion(code) {
       if (state.pickingRegionB) {
@@ -109,13 +107,10 @@ export function createStore() {
     },
     /** [전국] 버튼 */
     selectNation() { actions.tapRegion('00'); },
-    /** 📍 지역 선택 창: 지역 A / 비교 지역 B(null이면 비교 끝) */
-    chooseRegionA: (code) => set({ regionA: code, regionB: code === state.regionB ? null : state.regionB, pickingRegionB: false, ui: { ...state.ui, chooser: null } }),
-    chooseRegionB: (code) => set({ regionB: code && code !== state.regionA ? code : null, pickingRegionB: false, ui: { ...state.ui, chooser: null } }),
     startPickB: () => set({ pickingRegionB: true }),
     cancelPickB: () => set({ pickingRegionB: false }),
     clearRegionB: () => set({ regionB: null, pickingRegionB: false }),
-    setPeriod: (period) => set({ period, year: null, ui: { ...state.ui, chooser: null } }),
+    setPeriod: (period) => set({ period, year: null }),
     setYear: (year) => set({ year: year == null ? null : Math.round(year) }),
     setMapView: (mapView) => set({ mapView: mapView === 'diff' && !state.scenB ? 'side' : mapView }),
     setMapTab: (tab) => setUi({ mapTab: tab }),
