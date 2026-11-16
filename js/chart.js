@@ -24,6 +24,80 @@ function alpha(hex, a) {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
+/* ───────────── 기간 평균 값 이름표 자리 ───────────── */
+
+const TLAB_FONT = { size: 14, weight: '800' };
+const TLAB_PAD = { x: 3, y: 1 };
+const TLAB_GAP = 8;   // 점과 이름표 사이
+const DOT_R = 7;      // 점(반지름 5 + 테두리)을 덮지 않게 보는 범위
+
+/**
+ * 기간 평균 값 이름표 전체의 자리 — 점 가운데에서 옮길 거리 { id: {dx, dy} } (픽셀).
+ * 기간마다(왼쪽부터) 그 기간의 A·B 이름표를 함께 정함. 기본은 높은 쪽 점 위·낮은 쪽 점 아래이고,
+ * 그래프 칸 밖으로 나가 잘리거나(일수가 0일 근처일 때 등) 앞서 놓은 이름표·그래프 안 범례·다른 점과 겹치면
+ * 반대쪽(위/아래)이나 점 옆(A는 왼쪽, B는 오른쪽 먼저)으로, 그것도 막히면 두 이름표를 위(아래)로 쌓음
+ * — 잘리지 않고 겹치지 않는 자리 중 기본에 가장 가까운 것.
+ * 그릴 때마다 픽셀로 다시 계산하므로 화면 크기·전체화면이 바뀌어도 맞음(같은 크기면 앞 계산을 그대로 씀).
+ */
+function placeTrendLabels(chart, groups) {
+  const { left, right, top, bottom } = chart.chartArea;
+  const cv = chart.canvas.getBoundingClientRect();
+  // 그래프 위에 겹쳐 놓은 HTML 범례(.in-legend)의 항목들 — 캔버스 좌표로
+  const legend = [...(chart.canvas.parentElement?.querySelectorAll('.in-legend .li') ?? [])].map((e) => e.getBoundingClientRect())
+    .filter((r) => r.width > 0).map((r) => ({ x1: r.left - cv.left, x2: r.right - cv.left, y1: r.top - cv.top, y2: r.bottom - cv.top }));
+  const key = [left, right, top, bottom, ...legend.flatMap((r) => [r.x1, r.y1, r.x2, r.y2])].map(Math.round).join(',');
+  if (groups.cache?.key === key) return groups.cache.offs;
+
+  const g = chart.ctx;
+  g.save();
+  g.font = `${TLAB_FONT.weight} ${TLAB_FONT.size}px ${window.Chart.defaults.font.family}`;
+  const h = TLAB_FONT.size * 1.2 + TLAB_PAD.y * 2;   // annotation 플러그인과 같은 계산(줄 높이 1.2)
+  const G = groups.map((items) => items.map((it) => ({
+    ...it, px: chart.scales.x.getPixelForValue(it.x), py: chart.scales.y.getPixelForValue(it.y), w: g.measureText(it.text).width + TLAB_PAD.x * 2,
+  })));
+  g.restore();
+  const dots = G.flat().map((q) => ({ id: q.id, x1: q.px - DOT_R, x2: q.px + DOT_R, y1: q.py - DOT_R, y2: q.py + DOT_R }));
+  const offset = (p, kind) => {
+    if (kind === 'up' || kind === 'down') return { dx: 0, dy: (kind === 'up' ? -1 : 1) * (TLAB_GAP + h / 2) };
+    if (kind === 'up2' || kind === 'down2') return { dx: 0, dy: (kind === 'up2' ? -1 : 1) * (TLAB_GAP + h + 2 + h / 2) };   // 한 칸 더(두 이름표를 쌓을 때)
+    const cy = Math.min(Math.max(p.py, top + h / 2), bottom - h / 2);   // 옆: 점 높이에 맞추되 칸 안으로
+    return { dx: (kind === 'right' ? 1 : -1) * (DOT_R + 3 + p.w / 2), dy: cy - p.py };
+  };
+  const box = (p, o) => ({ x1: p.px + o.dx - p.w / 2, x2: p.px + o.dx + p.w / 2, y1: p.py + o.dy - h / 2, y2: p.py + o.dy + h / 2 });
+  const hit = (a, b) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+  const kinds = ['up', 'down', 'up2', 'down2', 'right', 'left'];
+  const offs = {};
+  const placed = [];   // 앞 기간에 놓은 이름표
+  G.forEach((P) => {
+    const cost = (p, kind) => {
+      const out = p.side > 0 ? 'right' : 'left';
+      // 쌓기(up2·down2)는 옆자리가 막혔을 때만 고르도록 옆보다 조금 비싸게(낮은 쪽 위 1 + 높은 쪽 한 칸 더 1.6 > 옆 2)
+      const base = P.length < 2 ? { up: 0, down: 1, up2: 3, down2: 3 }
+        : p.up ? { up: 0, up2: 1.6, down: 3, down2: 4 } : { down: 0, up: 1, down2: 1.6, up2: 3 };
+      return { ...base, [out]: 2, [out === 'right' ? 'left' : 'right']: 2.5 }[kind];
+    };
+    const combos = P.reduce((acc) => acc.flatMap((c) => kinds.map((k) => [...c, k])), [[]]);
+    let best = null;
+    combos.forEach((c) => {
+      const os = c.map((k, i) => offset(P[i], k));
+      const boxes = os.map((o, i) => box(P[i], o));
+      let score = c.reduce((t, k, i) => t + cost(P[i], k), 0);
+      boxes.forEach((b, i) => {
+        if (b.x1 < left || b.x2 > right || b.y1 < top || b.y2 > bottom) score += 1000;   // 잘림
+        boxes.forEach((b2, j) => { if (j > i && hit(b, b2)) score += 100; });            // 같은 기간 이름표끼리
+        placed.forEach((b2) => { if (hit(b, b2)) score += 100; });                       // 앞 기간 이름표
+        legend.forEach((b2) => { if (hit(b, b2)) score += 100; });                       // 그래프 안 범례
+        dots.forEach((d) => { if (d.id !== P[i].id && hit(b, d)) score += 50; });       // 다른 점을 덮음
+      });
+      if (!best || score < best.score) best = { score, os, boxes };
+    });
+    P.forEach((p, i) => { offs[p.id] = best.os[i]; });
+    placed.push(...best.boxes);
+  });
+  groups.cache = { key, offs };
+  return offs;
+}
+
 /* ───────────── 그래프 구성 ───────────── */
 
 function build(v) {
@@ -151,12 +225,13 @@ function build(v) {
   // 기간 평균 추세선 — 「기간 평균 추세선 보기」를 켰을 때만 (연도별 값이 없는 전국은 이것이 유일한 자료라 늘)
   //  · 각 기간의 20년 평균을 기간 가운데 연도(2030·2050·2070·2090)에 점으로: 공식값 ●, 앱 계산(2061~2080) ○
   //  · 같은 시나리오의 점끼리 3px 선으로 이음 — 직선 회귀가 아님. 현재기후(2000~2019)와는 잇지 않고 2030 점에서 시작
-  //  · A·B 점이 가까운 기간은 x를 ±1년 띄우고, 값 이름표는 높은 쪽 위·낮은 쪽 아래
+  //  · A·B 점이 가까운 기간은 x를 ±1년 띄우고, 값 이름표는 높은 쪽 위·낮은 쪽 아래(잘리면 옮김 → placeTrendLabels)
   //  · 켜면 연도별 선은 흐리게(불투명도 0.3). 4개 모두 보기면 나머지 시나리오도 가는 추세선
   const trendPeriods = periods.filter((p) => p.id !== 'cur');
   const midYear = (p) => Math.floor((p.start + p.end) / 2);
   const ySpan = (range.max - range.min) || 1;
   const fmtV = (y) => (s.mode === 'abs' ? fmtNum(y) : fmtSigned(y));
+  const labelGroups = {};   // 기간 id → 그 기간의 값 이름표들(A·B) — 자리는 placeTrendLabels가 함께 정함
   let derivedShown = false;
   let trendShown = false;
   regions.forEach((r) => {
@@ -189,14 +264,21 @@ function build(v) {
         const p = trendPeriods[i];
         const other = m === scenA ? (scenB ? val(scenB, p) : null) : val(scenA, p);
         const up = !D.isNum(other) || q.y > other || (q.y === other && m === scenB);
-        ann[`tlab-${m.id}-${p.id}`] = {
-          type: 'label', xValue: q.x, yValue: q.y, content: [fmtV(q.y)], color: m.color, font: { size: 14, weight: '800' },
-          backgroundColor: 'rgba(255, 255, 255, 0.85)', borderRadius: 4, padding: { x: 3, y: 1 },
-          position: { x: 'center', y: up ? 'end' : 'start' }, yAdjust: up ? -8 : 8, drawTime: 'afterDatasetsDraw',
-        };
+        (labelGroups[p.id] ??= []).push({ id: `tlab-${m.id}-${p.id}`, x: q.x, y: q.y, text: fmtV(q.y), color: m.color, up, side: m === scenA && scenB ? -1 : 1 });
       });
     });
   });
+  const groups = Object.values(labelGroups).sort((a, b) => a[0].x - b[0].x);   // 기간 순서(왼쪽부터)
+  groups.forEach((items) => items.forEach((it) => {
+    ann[it.id] = {
+      type: 'label', xValue: it.x, yValue: it.y, content: [it.text], color: it.color, font: { ...TLAB_FONT },
+      backgroundColor: 'rgba(255, 255, 255, 0.85)', borderRadius: 4, padding: { ...TLAB_PAD }, position: 'center',
+      // 자리는 그릴 때 픽셀로 계산(화면 크기·전체화면이 바뀌면 다시 계산됨)
+      xAdjust: (c) => placeTrendLabels(c.chart, groups)[it.id].dx,
+      yAdjust: (c) => placeTrendLabels(c.chart, groups)[it.id].dy,
+      drawTime: 'afterDatasetsDraw',
+    };
+  }));
   // 추세선이 있으면 현재기후 이름표는 짧게("현재기후 · 대구" — 기간은 회색 띠가 보여 줌) 해서 2030 점에 닿지 않게,
   // 아래 여유가 있으면 선 아래로
   if (trendShown && ann.curLabel && curLabelY) {
@@ -271,9 +353,9 @@ function noteLine(v, b) {
   const key = (swatch, text) => `<span class="gk">${swatch}${esc(text)}</span>`;
   const parts = [];
   if (b.periodOnly.length) parts.push(`<b>${esc(b.periodOnly.map((r) => periodOnlyNote(v.regionMeta(r)?.short ?? r)).join(' / '))}</b>`);
-  if (b.compare) parts.push(`<span class="gk">${esc(`실선 ${v.regionMeta(s.regionA)?.short} · 점선 ${v.regionMeta(s.regionB)?.short}`)}</span>`);
+  if (b.compare) parts.push(`<span class="gk txt">${esc(`실선 ${v.regionMeta(s.regionA)?.short} · 점선 ${v.regionMeta(s.regionB)?.short}`)}</span>`);
   const allPeriodOnly = b.periodOnly.length === b.regions.length;
-  if (allPeriodOnly) parts.push(`<span class="gk">${esc(T.graphLinePeriodOnly)}</span>`);
+  if (allPeriodOnly) parts.push(`<span class="gk txt">${esc(T.graphLinePeriodOnly)}</span>`);
   else {
     // 시나리오 견본: 그래프에 그린 시나리오마다 짧은 선 하나 (기본 A·B 두 색, 「4개 모두 보기」면 네 색)
     const all4 = s.showAll4 && !s.regionB;
@@ -285,10 +367,10 @@ function noteLine(v, b) {
     parts.push(key(sw('band'), T.graphKeyBand));
     parts.push(key(scenSw, T.graphKeyScen));
     if (s.year == null) parts.push(key(sw('box'), T.graphKeyShade));
-    if (b.trendShown) parts.push(`<span class="gk">${esc(T.graphLineTrend)}</span>`);
+    if (b.trendShown) parts.push(`<span class="gk txt">${esc(T.graphLineTrend)}</span>`);
   }
-  if (s.obsLayer.on && !v.obsAllowed) parts.push(`<span class="gk">${esc(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`)}</span>`);
-  if (s.regionB) parts.push(`<span class="gk">${esc('지역 비교 중에는 4개 모두를 쓸 수 없어요')}</span>`);
+  if (s.obsLayer.on && !v.obsAllowed) parts.push(`<span class="gk txt">${esc(`관측: ${v.elMeta?.kind !== 'temp' ? T.obsOnlyTemp : T.obsNeedsChg}`)}</span>`);
+  if (s.regionB) parts.push(`<span class="gk txt">${esc('지역 비교 중에는 4개 모두를 쓸 수 없어요')}</span>`);
   // 연도별 선이 있으면 끝에 따로 한 줄: 기후모델 전망값이지 그해 날씨 예보가 아님
   return `<span class="gn-keys">${parts.join('')}</span>${allPeriodOnly ? '' : `<span class="gn-model">${esc(T.graphLineModel)}</span>`}`;
 }

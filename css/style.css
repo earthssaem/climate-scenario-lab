@@ -249,6 +249,7 @@ a.brand:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 /* 그래프 아래 설명: 견본 + 이름을 한 덩어리로(줄바꿈은 덩어리 사이에서만), "예보가 아님"은 다음 줄 */
 .graph-note .gn-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
 .graph-note .gk { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--ink-2); }
+.graph-note .gk.txt { white-space: normal; }   /* 견본 없는 긴 문장은 좁은 화면에서 줄바꿈(가로 스크롤 방지) */
 .graph-note .gn-model { display: block; margin-top: 2px; }
 .gk-sw { display: inline-block; flex: none; width: 18px; }
 .gk-sw.cur { height: 3px; border-radius: 2px; background: #262b33; }
