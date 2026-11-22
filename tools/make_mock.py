@@ -350,6 +350,7 @@ def make_manifest():
         ],
         "sources": {
             "projection": "기상청 기후정보포털, SSP 남한상세 행정구역 자료(5개 모델 앙상블 평균)",
+            "basis": "IPCC 제6차 평가보고서(AR6)의 SSP 시나리오(SSP1-2.6·SSP2-4.5·SSP3-7.0·SSP5-8.5)로 계산한 전 지구 기후모델 결과(CMIP6)를 기상청이 남한 상세로 만든 국가 기후변화 표준 시나리오",
             "current": "기상청 MK-PRISM v2.1 행정구역 자료(2000~2019)",
             "obs": "기상청 기상정보분석·기상자료개방포털 ASOS",
             "co2": "IPCC AR6 WG1 SPM.4 (CC BY 4.0)",

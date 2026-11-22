@@ -259,7 +259,7 @@ export const periodOnlyHint = '지도에서 시도를 고르면 연도별 값을
 
 /* ───────────── 출처 (푸터) ───────────── */
 
-const SOURCE_LABELS = { projection: '전망', current: '현재기후', official: '공식 기간값', download: '자료 받는 곳', obs: '장기관측', co2: 'CO₂ 배출 경로', co2Graph: '작은 CO₂ 그래프', scenarioText: '시나리오 설명' };
+const SOURCE_LABELS = { projection: '전망', basis: '시나리오 근거', current: '현재기후', official: '공식 기간값', download: '자료 받는 곳', obs: '장기관측', co2: 'CO₂ 배출 경로', co2Graph: '작은 CO₂ 그래프', scenarioText: '시나리오 설명' };
 
 /** manifest.sources → [{label, text}] — 문구는 파일 그대로 (정해진 순서, 그 밖의 키는 뒤에) */
 export function sourceLines(sources) {
